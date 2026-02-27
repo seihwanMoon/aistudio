@@ -9,7 +9,7 @@
 
 | Phase | 진행률 | 완료 / 전체 |
 |-------|--------|------------|
-| SETUP | 0% | 0 / 5 |
+| SETUP | 60% | 3 / 5 |
 | Phase 1 MVP | 0% | 0 / 28 |
 | Phase 2 MLOps | 0% | 0 / 22 |
 | Phase 3 현장연동 | 0% | 0 / 26 |
@@ -22,14 +22,16 @@
 
 - [ ] **S-01** Docker Desktop 설치 확인 및 버전 체크 (≥ v4.0)
   - 완료일: ___
-- [ ] **S-02** 프로젝트 루트 폴더 구조 생성 (`ARCHITECTURE.md` 참고)
-  - 완료일: ___
-- [ ] **S-03** Backend `requirements.txt` 설치 검증 (`pip install -r requirements.txt`)
-  - 완료일: ___
-- [ ] **S-04** Frontend 의존성 설치 검증 (`npm install`)
-  - 완료일: ___
+  > ⚠️ 이슈: Docker CLI가 설치되어 있지 않아 버전 체크를 수행할 수 없음 (`docker: command not found`).
+- [x] **S-02** 프로젝트 루트 폴더 구조 생성 (`ARCHITECTURE.md` 참고)
+  - 완료일: 2026-02-27
+- [x] **S-03** Backend `requirements.txt` 설치 검증 (`pip install -r requirements.txt`)
+  - 완료일: 2026-02-27
+- [x] **S-04** Frontend 의존성 설치 검증 (`npm install`)
+  - 완료일: 2026-02-27
 - [ ] **S-05** `docker-compose up` 으로 전체 스택 기동 확인
   - 완료일: ___
+  > ⚠️ 이슈: Docker Compose가 설치되어 있지 않아 전체 스택 기동 검증을 수행할 수 없음 (`docker-compose: command not found`).
 
 ---
 

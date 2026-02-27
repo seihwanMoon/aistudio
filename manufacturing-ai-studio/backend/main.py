@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
+import models  # noqa: F401
 
 # 라우터 임포트 (단계별로 주석 해제)
 from routers import data, train, predict, report

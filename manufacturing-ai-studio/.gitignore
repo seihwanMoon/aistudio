@@ -10,3 +10,5 @@ frontend/dist/
 
 # Logs
 *.log
+
+backend/data/uploads/

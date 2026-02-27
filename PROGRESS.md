@@ -10,7 +10,7 @@
 | Phase | 진행률 | 완료 / 전체 |
 |-------|--------|------------|
 | SETUP | 60% | 3 / 5 |
-| Phase 1 MVP | 29% | 8 / 28 |
+| Phase 1 MVP | 43% | 12 / 28 |
 | Phase 2 MLOps | 0% | 0 / 22 |
 | Phase 3 현장연동 | 0% | 0 / 26 |
 
@@ -43,8 +43,8 @@
   - 완료일: 2026-02-27
 - [x] **P1-02** SQLite DB 연결 및 `database.py` 작성
   - 완료일: 2026-02-27
-- [ ] **P1-03** DB 모델 정의 (`models/experiment.py`, `models/model.py`)
-  - 완료일: ___
+- [x] **P1-03** DB 모델 정의 (`models/experiment.py`, `models/model.py`)
+  - 완료일: 2026-02-27
 - [x] **P1-04** Vite + React 프로젝트 초기화 및 라우터 셋업
   - 완료일: 2026-02-27
 - [x] **P1-05** Zustand 전역 스토어 (`store/useAppStore.js`) 작성
@@ -52,13 +52,13 @@
 
 ### [W3-W4] 데이터 업로드 & 전처리
 
-- [ ] **P1-06** 파일 업로드 API (`POST /api/data/upload`) 구현
-  - 완료일: ___
+- [x] **P1-06** 파일 업로드 API (`POST /api/data/upload`) 구현
+  - 완료일: 2026-02-27
   - 요구사항: CSV + XLSX, 최대 50MB, EUC-KR/UTF-8 자동 감지
-- [ ] **P1-07** 데이터 품질 분석 함수 (결측값 카운트, 컬럼 타입 감지)
-  - 완료일: ___
-- [ ] **P1-08** 데이터 미리보기 API (`GET /api/data/{file_id}/preview`)
-  - 완료일: ___
+- [x] **P1-07** 데이터 품질 분석 함수 (결측값 카운트, 컬럼 타입 감지)
+  - 완료일: 2026-02-27
+- [x] **P1-08** 데이터 미리보기 API (`GET /api/data/{file_id}/preview`)
+  - 완료일: 2026-02-27
 - [ ] **P1-09** Upload 페이지 UI 컴포넌트 (`pages/UploadPage.jsx`)
   - 완료일: ___
   - 요구사항: 드래그앤드롭, 파일 형식 안내, 샘플 데이터 다운로드 버튼

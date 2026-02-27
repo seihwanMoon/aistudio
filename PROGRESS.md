@@ -10,7 +10,7 @@
 | Phase | 진행률 | 완료 / 전체 |
 |-------|--------|------------|
 | SETUP | 60% | 3 / 5 |
-| Phase 1 MVP | 0% | 0 / 28 |
+| Phase 1 MVP | 29% | 8 / 28 |
 | Phase 2 MLOps | 0% | 0 / 22 |
 | Phase 3 현장연동 | 0% | 0 / 26 |
 
@@ -39,16 +39,16 @@
 
 ### [W1-W2] 프로젝트 기반 셋업
 
-- [ ] **P1-01** FastAPI 앱 진입점 (`backend/main.py`) 작성
-  - 완료일: ___
-- [ ] **P1-02** SQLite DB 연결 및 `database.py` 작성
-  - 완료일: ___
+- [x] **P1-01** FastAPI 앱 진입점 (`backend/main.py`) 작성
+  - 완료일: 2026-02-27
+- [x] **P1-02** SQLite DB 연결 및 `database.py` 작성
+  - 완료일: 2026-02-27
 - [ ] **P1-03** DB 모델 정의 (`models/experiment.py`, `models/model.py`)
   - 완료일: ___
-- [ ] **P1-04** Vite + React 프로젝트 초기화 및 라우터 셋업
-  - 완료일: ___
-- [ ] **P1-05** Zustand 전역 스토어 (`store/useAppStore.js`) 작성
-  - 완료일: ___
+- [x] **P1-04** Vite + React 프로젝트 초기화 및 라우터 셋업
+  - 완료일: 2026-02-27
+- [x] **P1-05** Zustand 전역 스토어 (`store/useAppStore.js`) 작성
+  - 완료일: 2026-02-27
 
 ### [W3-W4] 데이터 업로드 & 전처리
 
@@ -103,14 +103,14 @@
   - 완료일: ___
 - [ ] **P1-24** PDF 다운로드 API (`GET /api/report/{model_id}`)
   - 완료일: ___
-- [ ] **P1-25** 한국어 UI 텍스트 상수 파일 (`constants/korean.js`)
-  - 완료일: ___
-- [ ] **P1-26** `docker-compose.yml` 완성 (backend + frontend)
-  - 완료일: ___
-- [ ] **P1-27** Backend `Dockerfile` 작성
-  - 완료일: ___
-- [ ] **P1-28** Frontend `Dockerfile` 작성
-  - 완료일: ___
+- [x] **P1-25** 한국어 UI 텍스트 상수 파일 (`constants/korean.js`)
+  - 완료일: 2026-02-27
+- [x] **P1-26** `docker-compose.yml` 완성 (backend + frontend)
+  - 완료일: 2026-02-27
+- [x] **P1-27** Backend `Dockerfile` 작성
+  - 완료일: 2026-02-27
+- [x] **P1-28** Frontend `Dockerfile` 작성
+  - 완료일: 2026-02-27
 
 ---
 

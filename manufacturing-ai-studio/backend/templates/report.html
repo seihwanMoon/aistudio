@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>학습 리포트</title>
+    <style>
+      body { font-family: 'Malgun Gothic', sans-serif; margin: 32px; }
+      h1 { margin-bottom: 8px; }
+      .meta { color: #4b5563; margin-bottom: 24px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Manufacturing AI Studio 리포트</h1>
+    <p class="meta">생성일: ${created_at}</p>
+
+    <div class="card">
+      <strong>모델명</strong>: ${model_name}<br />
+      <strong>태스크 유형</strong>: ${task_type}<br />
+      <strong>지표</strong>: ${metric_name} = ${metric_value}<br />
+      <strong>타겟 컬럼</strong>: ${target_column}
+    </div>
+
+    <div class="card">
+      <h3>피처 중요도</h3>
+      <ul>${feature_items}</ul>
+    </div>
+  </body>
+</html>

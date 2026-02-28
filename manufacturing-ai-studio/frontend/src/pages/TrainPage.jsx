@@ -1,5 +1,3 @@
-import { KO } from '../constants/korean'
+import SetupPage from './SetupPage'
 
-export default function TrainPage() {
-  return <h1>{KO.training.title}</h1>
-}
+export default SetupPage

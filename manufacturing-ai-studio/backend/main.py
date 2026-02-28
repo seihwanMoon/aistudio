@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
 import models  # noqa: F401
-from routers import data, drift, experiments, predict, registry, report, train
+from routers import auth, data, drift, experiments, predict, realtime, registry, report, train, watcher
 from scheduler import start_scheduler
 
 Base.metadata.create_all(bind=engine)
@@ -22,6 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api/auth", tags=["인증"])
 app.include_router(data.router, prefix="/api/data", tags=["데이터"])
 app.include_router(train.router, prefix="/api/train", tags=["학습"])
 app.include_router(predict.router, prefix="/api/predict", tags=["예측"])
@@ -31,6 +32,10 @@ app.include_router(report.router, prefix="/api/report", tags=["리포트"])
 app.include_router(experiments.router, prefix="/api/experiments", tags=["실험"])
 app.include_router(registry.router, prefix="/api/registry", tags=["레지스트리"])
 app.include_router(drift.router, prefix="/api/drift", tags=["드리프트"])
+
+# Phase 3
+app.include_router(realtime.router, prefix="", tags=["실시간"])
+app.include_router(watcher.router, prefix="/api/watcher", tags=["파일감시"])
 
 
 @app.on_event("startup")

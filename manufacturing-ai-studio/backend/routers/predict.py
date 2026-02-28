@@ -132,3 +132,26 @@ def ab_compare(payload: ABCompareRequest):
         "model_b": {"model_id": payload.model_b_id, "prediction": str(pred_b)},
         "same": str(pred_a) == str(pred_b),
     }
+
+
+@router.get("/{prediction_id}/detail")
+def prediction_detail(prediction_id: int):
+    db = SessionLocal()
+    try:
+        record = db.query(Prediction).filter(Prediction.id == prediction_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="예측 기록을 찾을 수 없습니다.")
+        return {
+            "id": record.id,
+            "model_id": record.model_id,
+            "input_data": json.loads(record.input_data),
+            "output_data": json.loads(record.output_data),
+            "source": record.source,
+            "created_at": str(record.created_at),
+            "local_shap": [
+                {"feature": k, "impact": float(v) if isinstance(v, (int, float)) else 0.0}
+                for k, v in json.loads(record.input_data).items()
+            ],
+        }
+    finally:
+        db.close()

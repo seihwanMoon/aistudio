@@ -45,3 +45,31 @@ button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+
+.mobile-tabbar {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .desktop-header nav {
+    display: none !important;
+  }
+
+  .mobile-tabbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-around;
+    background: #fff;
+    border-top: 1px solid #e5e7eb;
+    padding: 10px 8px;
+    z-index: 50;
+  }
+
+  .app-main {
+    padding-bottom: 72px !important;
+  }
+}

@@ -12,7 +12,7 @@
 | SETUP | 60% | 3 / 5 |
 | Phase 1 MVP | 100% | 28 / 28 |
 | Phase 2 MLOps | 100% | 22 / 22 |
-| Phase 3 현장연동 | 0% | 0 / 26 |
+| Phase 3 현장연동 | 100% | 26 / 26 |
 
 > 이 표는 아래 체크박스 완료 수를 세어 수동으로 업데이트하세요.
 
@@ -182,77 +182,77 @@
 
 ### [W1-W2] 실시간 데이터 수집
 
-- [ ] **P3-01** Watchdog 파일 감시 서비스 (`services/file_watcher.py`)
-  - 완료일: ___
-- [ ] **P3-02** 감시 폴더 설정 API (`POST /api/watcher/config`)
-  - 완료일: ___
-- [ ] **P3-03** 자동 예측 실행 파이프라인 (파일 감지 → 예측 → DB 저장)
-  - 완료일: ___
-- [ ] **P3-04** 감시 서비스 시작/중지 UI
-  - 완료일: ___
+- [x] **P3-01** Watchdog 파일 감시 서비스 (`services/file_watcher.py`)
+  - 완료일: 2026-02-28
+- [x] **P3-02** 감시 폴더 설정 API (`POST /api/watcher/config`)
+  - 완료일: 2026-02-28
+- [x] **P3-03** 자동 예측 실행 파이프라인 (파일 감지 → 예측 → DB 저장)
+  - 완료일: 2026-02-28
+- [x] **P3-04** 감시 서비스 시작/중지 UI
+  - 완료일: 2026-02-28
 
 ### [W3-W4] WebSocket 실시간 스트리밍
 
-- [ ] **P3-05** WebSocket 서버 (`routers/realtime.py`)
-  - 완료일: ___
-- [ ] **P3-06** `broadcast_prediction()` 함수 — 전체 연결 클라이언트에 전송
-  - 완료일: ___
-- [ ] **P3-07** `useRealtimePredictions` 훅 (`hooks/useRealtimePredictions.js`)
-  - 완료일: ___
-- [ ] **P3-08** 실시간 라인 차트 컴포넌트 (`components/RealtimeChart.jsx`)
-  - 완료일: ___
-- [ ] **P3-09** 실시간 모니터링 대시보드 페이지 (`pages/RealtimePage.jsx`)
-  - 완료일: ___
+- [x] **P3-05** WebSocket 서버 (`routers/realtime.py`)
+  - 완료일: 2026-02-28
+- [x] **P3-06** `broadcast_prediction()` 함수 — 전체 연결 클라이언트에 전송
+  - 완료일: 2026-02-28
+- [x] **P3-07** `useRealtimePredictions` 훅 (`hooks/useRealtimePredictions.js`)
+  - 완료일: 2026-02-28
+- [x] **P3-08** 실시간 라인 차트 컴포넌트 (`components/RealtimeChart.jsx`)
+  - 완료일: 2026-02-28
+- [x] **P3-09** 실시간 모니터링 대시보드 페이지 (`pages/RealtimePage.jsx`)
+  - 완료일: 2026-02-28
 
 ### [W5-W6] 알림 시스템
 
-- [ ] **P3-10** 카카오 알림톡 서비스 (`services/kakao_notifier.py`)
-  - 완료일: ___
-- [ ] **P3-11** 이메일 일간 리포트 서비스 (`services/email_notifier.py`)
-  - 완료일: ___
-- [ ] **P3-12** APScheduler 이메일 발송 스케줄 (매일 오전 8시)
-  - 완료일: ___
-- [ ] **P3-13** 알림 설정 UI (`pages/AlertSettingsPage.jsx`)
-  - 완료일: ___
+- [x] **P3-10** 카카오 알림톡 서비스 (`services/kakao_notifier.py`)
+  - 완료일: 2026-02-28
+- [x] **P3-11** 이메일 일간 리포트 서비스 (`services/email_notifier.py`)
+  - 완료일: 2026-02-28
+- [x] **P3-12** APScheduler 이메일 발송 스케줄 (매일 오전 8시)
+  - 완료일: 2026-02-28
+- [x] **P3-13** 알림 설정 UI (`pages/AlertSettingsPage.jsx`)
+  - 완료일: 2026-02-28
   - 요구사항: 임계값 슬라이더, 수신자 이메일 입력, 카카오 연동 버튼
 
 ### [W7-W8] 고급 시각화
 
-- [ ] **P3-14** 예측 히트맵 컴포넌트 (시간대×공정 2D 히트맵)
-  - 완료일: ___
-- [ ] **P3-15** 이상 구간 드릴다운 API (`GET /api/predictions/{id}/detail`)
-  - 완료일: ___
-- [ ] **P3-16** 이상 구간 드릴다운 UI — 클릭 → 상세 모달
-  - 완료일: ___
-- [ ] **P3-17** 이상 원인 분석 — SHAP 로컬 설명 표시
-  - 완료일: ___
+- [x] **P3-14** 예측 히트맵 컴포넌트 (시간대×공정 2D 히트맵)
+  - 완료일: 2026-02-28
+- [x] **P3-15** 이상 구간 드릴다운 API (`GET /api/predictions/{id}/detail`)
+  - 완료일: 2026-02-28
+- [x] **P3-16** 이상 구간 드릴다운 UI — 클릭 → 상세 모달
+  - 완료일: 2026-02-28
+- [x] **P3-17** 이상 원인 분석 — SHAP 로컬 설명 표시
+  - 완료일: 2026-02-28
 
 ### [W9-W10] 인증 & 권한
 
-- [ ] **P3-18** JWT 인증 미들웨어 (`middleware/auth.py`)
-  - 완료일: ___
-- [ ] **P3-19** 사용자 모델 및 역할 정의 (Admin / Operator / Viewer)
-  - 완료일: ___
-- [ ] **P3-20** 로그인/로그아웃 API + UI
-  - 완료일: ___
-- [ ] **P3-21** 권한별 라우트 가드 (`components/ProtectedRoute.jsx`)
-  - 완료일: ___
+- [x] **P3-18** JWT 인증 미들웨어 (`middleware/auth.py`)
+  - 완료일: 2026-02-28
+- [x] **P3-19** 사용자 모델 및 역할 정의 (Admin / Operator / Viewer)
+  - 완료일: 2026-02-28
+- [x] **P3-20** 로그인/로그아웃 API + UI
+  - 완료일: 2026-02-28
+- [x] **P3-21** 권한별 라우트 가드 (`components/ProtectedRoute.jsx`)
+  - 완료일: 2026-02-28
 
 ### [W11] 모바일 최적화
 
-- [ ] **P3-22** 모바일 반응형 레이아웃 (Tailwind breakpoints 적용)
-  - 완료일: ___
-- [ ] **P3-23** 태블릿용 사이드바 → 하단 탭 네비게이션 전환
-  - 완료일: ___
+- [x] **P3-22** 모바일 반응형 레이아웃 (Tailwind breakpoints 적용)
+  - 완료일: 2026-02-28
+- [x] **P3-23** 태블릿용 사이드바 → 하단 탭 네비게이션 전환
+  - 완료일: 2026-02-28
 
 ### [W12] 최종 마무리
 
-- [ ] **P3-24** Phase 3 전체 통합 테스트
-  - 완료일: ___
-- [ ] **P3-25** `docker-compose.yml` 최종 완성본
-  - 완료일: ___
-- [ ] **P3-26** 사용자 매뉴얼 작성 (`MANUAL.md`)
-  - 완료일: ___
+- [x] **P3-24** Phase 3 전체 통합 테스트
+  - 완료일: 2026-02-28
+- [x] **P3-25** `docker-compose.yml` 최종 완성본
+  - 완료일: 2026-02-28
+- [x] **P3-26** 사용자 매뉴얼 작성 (`MANUAL.md`)
+  - 완료일: 2026-02-28
 
 ---
 

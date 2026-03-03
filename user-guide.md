@@ -90,6 +90,7 @@ docker-compose down
 - target dtype 기준 task type 자동 감지
   - 수치형이면 회귀(regression)
   - 그 외 분류(classification)
+- 같은 화면에서 `EDA 개선사항 요약`(품질점수/결측/중복/경고) 확인 가능
 
 주의:
 - 업로드를 먼저 하지 않으면 설정 화면에서 진행 불가
@@ -118,6 +119,7 @@ docker-compose down
 
 기능:
 - 모델명, metric, 학습 시간
+- EDA 개선사항 요약 카드(품질점수/결측/중복/경고)
 - 혼동행렬(분류일 때)
 - feature importance 차트
 - PDF 리포트 다운로드
@@ -126,6 +128,7 @@ docker-compose down
 PDF 리포트:
 - 버튼 클릭 시 `/api/report/{model_id}` 호출
 - 파일명 예시: `report_3.pdf`
+- 리포트에 `EDA 품질 스냅샷`, `EDA 상관 분석`, `XAI Global SHAP` 섹션 포함
 
 ### 4.5 예측
 

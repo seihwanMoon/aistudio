@@ -5,6 +5,8 @@ from pathlib import Path
 from string import Template
 
 from services.automl_service import get_model_result
+from services.eda_service import get_eda_correlation, get_eda_summary
+from services.xai_service import get_global_explanation
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 REPORT_DIR = BASE_DIR / "data/reports"
@@ -50,25 +52,89 @@ def _metric_grade(task_type: str, metric_name: str, metric_value: float | None) 
     return "D", "지표 기준 재설정 또는 데이터 보강이 필요합니다."
 
 
-def _render_html(payload: dict) -> str:
-    template = Template(TEMPLATE_PATH.read_text(encoding="utf-8"))
-    raw_features = payload.get("feature_importance") or {}
-    features = sorted(raw_features.items(), key=lambda item: abs(float(item[1])), reverse=True)
-    max_abs_score = max((abs(float(score)) for _, score in features), default=1.0)
-    top_features = features[:10]
+def _format_percent(value: float | None) -> str:
+    if value is None:
+        return "N/A"
+    return f"{float(value) * 100.0:.2f}%"
 
-    feature_rows = "".join(
+
+def _resolve_file_id(base_payload: dict, xai_payload: dict | None) -> str | None:
+    if base_payload.get("file_id"):
+        return str(base_payload["file_id"])
+
+    source_file = ((xai_payload or {}).get("reference") or {}).get("source_file")
+    if not source_file:
+        return None
+
+    stem = Path(str(source_file)).stem
+    if not stem:
+        return None
+
+    for ext in (".csv", ".xlsx"):
+        if (BASE_DIR / "data/uploads" / f"{stem}{ext}").exists():
+            return stem
+    return None
+
+
+def _enrich_payload(base_payload: dict) -> dict:
+    payload = dict(base_payload)
+    payload["eda_summary"] = None
+    payload["eda_correlation"] = None
+    payload["xai_global"] = None
+
+    try:
+        payload["xai_global"] = get_global_explanation(
+            model_id=int(payload["model_id"]),
+            sample_size=300,
+            top_n=10,
+            use_cache=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        payload["xai_error"] = str(exc)
+
+    file_id = _resolve_file_id(payload, payload.get("xai_global"))
+    payload["file_id"] = file_id
+
+    if file_id:
+        try:
+            payload["eda_summary"] = get_eda_summary(file_id=file_id, use_cache=True)
+        except Exception as exc:  # noqa: BLE001
+            payload["eda_error"] = str(exc)
+
+        try:
+            payload["eda_correlation"] = get_eda_correlation(
+                file_id=file_id,
+                method="pearson",
+                max_features=30,
+                threshold=0.8,
+                use_cache=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            payload["eda_error"] = str(exc)
+
+    return payload
+
+
+def _render_rank_rows(items: list[tuple[str, float]], score_fmt: str = "{:.6f}") -> str:
+    return "".join(
         (
             "<tr>"
             f"<td>{idx}</td>"
             f"<td>{escape(str(name))}</td>"
-            f"<td class='mono'>{float(score):.6f}</td>"
+            f"<td class='mono'>{score_fmt.format(float(score))}</td>"
             "</tr>"
         )
-        for idx, (name, score) in enumerate(top_features, start=1)
+        for idx, (name, score) in enumerate(items, start=1)
     )
 
-    feature_bars = "".join(
+
+def _render_bars(items: list[tuple[str, float]], top_n: int = 5) -> str:
+    if not items:
+        return "<p>데이터가 없습니다.</p>"
+
+    selected = items[:top_n]
+    max_abs_score = max((abs(float(score)) for _, score in selected), default=1.0)
+    return "".join(
         (
             "<div class='bar-row'>"
             f"<div class='bar-label'>{escape(str(name))}</div>"
@@ -78,8 +144,43 @@ def _render_html(payload: dict) -> str:
             f"<div class='bar-value mono'>{float(score):.6f}</div>"
             "</div>"
         )
-        for name, score in top_features[:5]
+        for name, score in selected
     )
+
+
+def _render_html(payload: dict) -> str:
+    template = Template(TEMPLATE_PATH.read_text(encoding="utf-8"))
+
+    model_importance_raw = payload.get("feature_importance") or {}
+    model_importance = sorted(model_importance_raw.items(), key=lambda item: abs(float(item[1])), reverse=True)[:10]
+
+    xai_features_raw = ((payload.get("xai_global") or {}).get("top_features") or [])
+    xai_features = [
+        (str(item.get("feature", "")), float(item.get("mean_abs_shap", 0.0)))
+        for item in xai_features_raw
+        if item.get("feature") is not None
+    ][:10]
+
+    eda_summary = payload.get("eda_summary") or {}
+    high_corr_pairs = ((payload.get("eda_correlation") or {}).get("high_correlation_pairs") or [])[:10]
+
+    corr_rows = "".join(
+        (
+            "<tr>"
+            f"<td>{idx}</td>"
+            f"<td>{escape(str(item.get('left', '')))}</td>"
+            f"<td>{escape(str(item.get('right', '')))}</td>"
+            f"<td class='mono'>{float(item.get('corr', 0.0)):.4f}</td>"
+            "</tr>"
+        )
+        for idx, item in enumerate(high_corr_pairs, start=1)
+    )
+
+    eda_warning_items = ""
+    for warning in (eda_summary.get("warnings") or [])[:8]:
+        eda_warning_items += f"<li>{escape(str(warning))}</li>"
+    if not eda_warning_items:
+        eda_warning_items = "<li>특이 경고 없음</li>"
 
     grade, grade_comment = _metric_grade(
         str(payload.get("task_type")),
@@ -87,12 +188,23 @@ def _render_html(payload: dict) -> str:
         payload.get("metric_value"),
     )
 
-    recommendations = [
-        f"상위 중요 피처({', '.join(escape(str(name)) for name, _ in top_features[:3])})의 공정 관리 기준을 재정의하세요.",
-        "이상치/결측치 처리 규칙을 표준화해 재학습 데이터 품질을 높이세요.",
-        "동일 설정으로 주기 재학습 후 성능 변동(드리프트)을 모니터링하세요.",
-    ]
-    recommendation_items = "".join(f"<li>{item}</li>" for item in recommendations)
+    rec_items = []
+    if xai_features:
+        rec_items.append(
+            f"XAI 상위 요인({', '.join(escape(name) for name, _ in xai_features[:3])}) 중심으로 공정 제어값 허용범위를 재정의하세요."
+        )
+    if eda_summary.get("warnings"):
+        rec_items.append(f"EDA 경고 {len(eda_summary.get('warnings') or [])}건을 우선순위로 정리해 데이터 품질 규칙을 보강하세요.")
+    rec_items.extend(
+        [
+            "상관도가 높은 피처쌍은 중복 정보 가능성이 있으므로 피처 선택/변환 정책을 검토하세요.",
+            "주기 재학습과 드리프트 모니터링을 운영 절차에 포함하세요.",
+        ]
+    )
+    recommendation_items = "".join(f"<li>{item}</li>" for item in rec_items[:5])
+
+    xai_meta = payload.get("xai_global") or {}
+    xai_ref = xai_meta.get("reference") or {}
 
     return template.safe_substitute(
         model_id=payload.get("model_id", "N/A"),
@@ -106,14 +218,30 @@ def _render_html(payload: dict) -> str:
         feature_count=len(payload.get("feature_columns") or []),
         created_at=payload.get("created_at", "N/A"),
         experiment_name=payload.get("experiment_name") or "N/A",
-        feature_rows=feature_rows or "<tr><td colspan='3'>피처 정보가 없습니다.</td></tr>",
-        feature_bars=feature_bars or "<p>피처 중요도 정보가 없습니다.</p>",
+        source_file_id=payload.get("file_id") or "N/A",
+        training_time=(f"{float(payload.get('training_time')):.3f}s" if payload.get("training_time") is not None else "N/A"),
+        model_feature_rows=_render_rank_rows(model_importance) or "<tr><td colspan='3'>피처 정보가 없습니다.</td></tr>",
+        model_feature_bars=_render_bars(model_importance, top_n=5),
+        xai_rows=_render_rank_rows(xai_features) if xai_features else "<tr><td colspan='3'>XAI 결과가 없습니다.</td></tr>",
+        xai_bars=_render_bars(xai_features, top_n=5),
+        xai_method=xai_meta.get("explanation_method", "N/A"),
+        xai_runtime_ms=(f"{float(xai_meta.get('runtime_ms', 0.0)):.2f}" if xai_meta else "N/A"),
+        xai_reference_file=xai_ref.get("source_file", "N/A"),
+        xai_reference_rows=xai_ref.get("rows_used", "N/A"),
+        eda_quality_score=eda_summary.get("quality_score", "N/A"),
+        eda_rows=eda_summary.get("rows", "N/A"),
+        eda_columns=eda_summary.get("columns", "N/A"),
+        eda_missing_ratio=_format_percent(eda_summary.get("missing_overall_ratio")),
+        eda_duplicate_ratio=_format_percent(eda_summary.get("duplicate_ratio")),
+        eda_warning_items=eda_warning_items,
+        eda_corr_rows=corr_rows or "<tr><td colspan='4'>고상관 쌍이 없습니다.</td></tr>",
         recommendation_items=recommendation_items,
     )
 
 
 def build_report(model_id: int) -> Path:
-    payload = get_model_result(model_id)
+    base_payload = get_model_result(model_id)
+    payload = _enrich_payload(base_payload)
     html = _render_html(payload)
     html_path = REPORT_DIR / f"report_{model_id}.html"
     html_path.write_text(html, encoding="utf-8")

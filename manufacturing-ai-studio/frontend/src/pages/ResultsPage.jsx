@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
+import { getEdaSummary } from '../api/eda.api'
 import { getTrainingResults } from '../api/train.api'
 import { downloadReport } from '../api/report.api'
 import { getGlobalXai, getPdp } from '../api/xai.api'
@@ -11,7 +12,10 @@ export default function ResultsPage() {
   const navigate = useNavigate()
   const trainedModelId = useAppStore((state) => state.trainedModelId)
   const trainingResult = useAppStore((state) => state.trainingResult)
+  const uploadedFile = useAppStore((state) => state.uploadedFile)
   const [result, setResult] = useState(trainingResult)
+  const [edaSummary, setEdaSummary] = useState(null)
+  const [edaSummaryError, setEdaSummaryError] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const chartContainerRef = useRef(null)
   const [chartWidth, setChartWidth] = useState(0)
@@ -59,6 +63,22 @@ export default function ResultsPage() {
     }
     loadGlobalXai()
   }, [trainedModelId])
+
+  useEffect(() => {
+    async function loadEdaSummary() {
+      const fileId = result?.file_id || uploadedFile?.file_id
+      if (!fileId) return
+      try {
+        const summary = await getEdaSummary(fileId)
+        setEdaSummary(summary)
+        setEdaSummaryError('')
+      } catch (error) {
+        setEdaSummary(null)
+        setEdaSummaryError(error?.response?.data?.detail || 'EDA 요약을 불러오지 못했습니다.')
+      }
+    }
+    loadEdaSummary()
+  }, [result?.file_id, uploadedFile?.file_id])
 
   useEffect(() => {
     async function loadPdp() {
@@ -163,6 +183,30 @@ export default function ResultsPage() {
           <p>{KO.results.trainingTime}</p>
           <strong>{result.training_time ? `${result.training_time.toFixed(2)}초` : 'N/A'}</strong>
         </div>
+      </div>
+
+      <div style={{ marginTop: 20, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#fff' }}>
+        <h3>EDA 개선사항 요약</h3>
+        {edaSummary ? (
+          <>
+            <p style={{ margin: 0, color: '#4b5563' }}>
+              품질점수 {edaSummary.quality_score} / 결측비율 {(Number(edaSummary.missing_overall_ratio || 0) * 100).toFixed(2)}% /
+              중복비율 {(Number(edaSummary.duplicate_ratio || 0) * 100).toFixed(2)}%
+            </p>
+            {(edaSummary.warnings || []).length > 0 ? (
+              <ul style={{ marginTop: 8 }}>
+                {(edaSummary.warnings || []).slice(0, 5).map((warning, idx) => (
+                  <li key={idx}>{warning}</li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ marginTop: 8, color: '#166534' }}>주요 품질 경고가 없습니다.</p>
+            )}
+          </>
+        ) : (
+          <p style={{ margin: 0, color: '#6b7280' }}>EDA 요약 데이터가 없습니다.</p>
+        )}
+        {edaSummaryError && <p style={{ color: '#b45309', marginTop: 8 }}>{edaSummaryError}</p>}
       </div>
 
       {Array.isArray(result.confusion_matrix) && result.confusion_matrix.length > 0 && (

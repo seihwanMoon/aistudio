@@ -124,6 +124,12 @@
         text-align: right;
         font-size: 11px;
       }
+      .warn-box {
+        border: 1px solid #fde68a;
+        background: #fffbeb;
+        border-radius: 8px;
+        padding: 8px;
+      }
       .footnote {
         margin-top: 10px;
         color: #6b7280;
@@ -134,7 +140,7 @@
   <body>
     <div class="header">
       <h1>Manufacturing AI Studio 분석 리포트</h1>
-      <p>Model ID ${model_id} | 생성일 ${created_at}</p>
+      <p>Model ID ${model_id} | 생성일 ${created_at} | Source file_id ${source_file_id}</p>
     </div>
 
     <div class="section">
@@ -162,11 +168,43 @@
         <tr><th>실험명</th><td>${experiment_name}</td><th>태스크</th><td>${task_type}</td></tr>
         <tr><th>타겟 컬럼</th><td>${target_column}</td><th>피처 개수</th><td>${feature_count}</td></tr>
         <tr><th>평가 지표</th><td>${metric_name}</td><th>평가 값</th><td class="mono">${metric_value}</td></tr>
+        <tr><th>학습 시간</th><td>${training_time}</td><th>데이터 file_id</th><td class="mono">${source_file_id}</td></tr>
       </table>
     </div>
 
     <div class="section">
-      <h2>3. 영향도 분석 (Top Features)</h2>
+      <h2>3. EDA 품질 스냅샷</h2>
+      <table class="kv">
+        <tr><th>품질 점수</th><td>${eda_quality_score}</td><th>Rows / Cols</th><td>${eda_rows} / ${eda_columns}</td></tr>
+        <tr><th>결측 비율</th><td>${eda_missing_ratio}</td><th>중복 비율</th><td>${eda_duplicate_ratio}</td></tr>
+      </table>
+      <div class="warn-box" style="margin-top: 10px;">
+        <strong>EDA 경고/개선 포인트</strong>
+        <ul style="margin: 6px 0 0; padding-left: 18px;">
+          ${eda_warning_items}
+        </ul>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>4. EDA 상관 분석 Top Pairs</h2>
+      <table class="feature-table">
+        <thead>
+          <tr>
+            <th style="width: 60px;">순위</th>
+            <th>Feature A</th>
+            <th>Feature B</th>
+            <th style="width: 120px;">Corr</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${eda_corr_rows}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>5. 모델 중요도 (Model-based)</h2>
       <table class="feature-table">
         <thead>
           <tr>
@@ -176,21 +214,44 @@
           </tr>
         </thead>
         <tbody>
-          ${feature_rows}
+          ${model_feature_rows}
         </tbody>
       </table>
       <div style="margin-top: 10px;">
-        ${feature_bars}
+        ${model_feature_bars}
       </div>
     </div>
 
     <div class="section">
-      <h2>4. 운영 권장 액션</h2>
+      <h2>6. XAI 해석 (Global SHAP)</h2>
+      <table class="kv">
+        <tr><th>해석 방식</th><td>${xai_method}</td><th>계산 시간(ms)</th><td>${xai_runtime_ms}</td></tr>
+        <tr><th>참조 파일</th><td>${xai_reference_file}</td><th>참조 행 수</th><td>${xai_reference_rows}</td></tr>
+      </table>
+      <table class="feature-table" style="margin-top: 10px;">
+        <thead>
+          <tr>
+            <th style="width: 60px;">순위</th>
+            <th>피처</th>
+            <th style="width: 140px;">mean |SHAP|</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${xai_rows}
+        </tbody>
+      </table>
+      <div style="margin-top: 10px;">
+        ${xai_bars}
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>7. 운영 권장 액션</h2>
       <ol>
         ${recommendation_items}
       </ol>
       <p class="footnote">
-        본 리포트는 자동 학습 결과를 기반으로 생성되었으며, 실운영 반영 전 데이터 품질 및 기준값 검토가 필요합니다.
+        본 리포트는 모델 학습 결과와 EDA/XAI 분석값을 기반으로 자동 생성되었습니다. 운영 반영 전 공정 기준값 검토가 필요합니다.
       </p>
     </div>
   </body>

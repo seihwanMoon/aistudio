@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { KO } from '../constants/korean'
 import { getDataPreview } from '../api/data.api'
+import { getEdaSummary } from '../api/eda.api'
+import EdaOverview from '../components/data/EdaOverview'
 import { useAppStore } from '../store/useAppStore'
 
 function detectTaskType(dtype) {
@@ -23,6 +25,7 @@ export default function SetupPage() {
 
   const [columns, setColumns] = useState([])
   const [dtypes, setDtypes] = useState({})
+  const [edaSummary, setEdaSummary] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
@@ -32,6 +35,12 @@ export default function SetupPage() {
         const preview = await getDataPreview(uploadedFile.file_id)
         setColumns(preview.columns || [])
         setDtypes(preview.dtypes || {})
+        try {
+          const summary = await getEdaSummary(uploadedFile.file_id)
+          setEdaSummary(summary)
+        } catch {
+          setEdaSummary(null)
+        }
         if (!targetColumn && preview.columns?.length) {
           setTargetColumn(preview.columns[preview.columns.length - 1])
         }
@@ -112,6 +121,15 @@ export default function SetupPage() {
 
       <button type="button" onClick={goTraining} style={{ marginTop: 16 }}>학습 시작 화면으로 이동</button>
       {errorMessage && <p style={{ color: '#dc2626' }}>{errorMessage}</p>}
+
+      <div style={{ marginTop: 24 }}>
+        <h3 style={{ marginBottom: 8 }}>EDA 개선사항 요약</h3>
+        <p style={{ marginTop: 0, color: '#4b5563' }}>
+          업로드 페이지에서 전체 EDA를 확인할 수 있으며, 여기서는 핵심 품질 지표를 요약 표시합니다.
+        </p>
+        <EdaOverview summary={edaSummary} />
+        {!edaSummary && <p style={{ color: '#6b7280' }}>EDA 요약을 불러오지 못했습니다. 업로드 페이지에서 다시 확인해 주세요.</p>}
+      </div>
     </section>
   )
 }

@@ -36,6 +36,28 @@ TRAINING_SESSIONS: dict[str, dict] = {}
 _SESSIONS_LOCK = threading.Lock()
 
 
+def _metadata_path(model_path: Path) -> Path:
+    return model_path.with_suffix(".meta.json")
+
+
+def _save_model_metadata(model_path: Path, payload: dict) -> None:
+    _metadata_path(model_path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _load_model_metadata(model_path: Path) -> dict:
+    meta_path = _metadata_path(model_path)
+    if not meta_path.exists():
+        return {}
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def _find_file_by_id(file_id: str) -> Path:
     for ext in (".csv", ".xlsx"):
         path = Path("data/uploads") / f"{file_id}{ext}"
@@ -276,6 +298,28 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
         db.commit()
         db.refresh(trained_model)
 
+        _save_model_metadata(
+            model_path=model_path,
+            payload={
+                "session_id": session_id,
+                "model_id": trained_model.id,
+                "experiment_id": experiment.id,
+                "file_id": file_id,
+                "target_column": target_column,
+                "feature_columns": feature_columns,
+                "task_type": task_type,
+                "time_budget": int(time_budget),
+                "train_rows": int(len(X_train)),
+                "test_rows": int(len(X_test)),
+                "metric_name": metric_name,
+                "metric_value": float(metric_value),
+                "metrics": metrics,
+                "training_time": float(elapsed),
+                "created_at": time.time(),
+                "mlflow_run_id": mlflow_run_id,
+            },
+        )
+
         save_baseline_from_training(trained_model.id, X_train)
         artifact_log_status = _log_eda_xai_artifacts_to_mlflow(
             mlflow_run_id=mlflow_run_id,
@@ -293,6 +337,7 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
             "task_type": task_type,
             "target_column": target_column,
             "feature_columns": feature_columns,
+            "file_id": file_id,
             "mlflow_artifacts": artifact_log_status,
         }
 
@@ -390,6 +435,7 @@ def get_model_result(model_id: int) -> dict:
         model_obj = artifact["model"]
         feature_columns = artifact["feature_columns"]
         importances = _build_feature_importance(model_obj, feature_columns)
+        metadata = _load_model_metadata(Path(model.model_path))
         return {
             "model_id": model.id,
             "model_name": model.model_name,
@@ -399,6 +445,9 @@ def get_model_result(model_id: int) -> dict:
             "feature_importance": importances,
             "target_column": artifact["target_column"],
             "feature_columns": feature_columns,
+            "file_id": metadata.get("file_id"),
+            "mlflow_run_id": metadata.get("mlflow_run_id"),
+            "training_time": metadata.get("training_time"),
             "experiment_name": experiment.name if experiment else None,
             "created_at": str(model.created_at),
         }

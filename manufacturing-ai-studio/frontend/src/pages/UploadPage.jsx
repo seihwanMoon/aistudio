@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { KO } from '../constants/korean'
 import { getDataPreview, uploadDataFile } from '../api/data.api'
 import { getEdaCorrelation, getEdaFeatureProfile, getEdaSummary, getEdaTargetInsight } from '../api/eda.api'
@@ -29,6 +29,7 @@ function validateFile(file) {
 }
 
 export default function UploadPage() {
+  const uploadedFile = useAppStore((state) => state.uploadedFile)
   const setUploadedFile = useAppStore((state) => state.setUploadedFile)
 
   const [file, setFile] = useState(null)
@@ -101,6 +102,49 @@ export default function UploadPage() {
     await loadTargetInsight(uploadResult?.file_id, targetColumn)
   }
 
+  async function loadPreviewAndEda(fileId) {
+    const previewData = await getDataPreview(fileId)
+    setPreview(previewData)
+
+    const [summary, correlation] = await Promise.all([
+      getEdaSummary(fileId),
+      getEdaCorrelation(fileId, { max_features: 30, threshold: 0.8 }),
+    ])
+    setEdaSummary(summary)
+    setEdaCorrelation(correlation)
+
+    const defaultTargetColumn = previewData?.columns?.[previewData?.columns?.length - 1] || ''
+    setTargetInsightColumn(defaultTargetColumn)
+    if (defaultTargetColumn) {
+      await loadTargetInsight(fileId, defaultTargetColumn)
+    } else {
+      setTargetInsight(null)
+    }
+
+    const firstFeature = previewData?.columns?.[0]
+    if (firstFeature) {
+      setSelectedFeature(firstFeature)
+      await loadFeatureProfile(fileId, firstFeature)
+    } else {
+      setFeatureProfile(null)
+      setSelectedFeature('')
+    }
+  }
+
+  useEffect(() => {
+    async function hydrateStoredUpload() {
+      if (!uploadedFile?.file_id) return
+      if (preview?.file_id === uploadedFile.file_id) return
+      try {
+        setUploadResult((prev) => prev || uploadedFile)
+        await loadPreviewAndEda(uploadedFile.file_id)
+      } catch (error) {
+        setEdaErrorMessage(error?.response?.data?.detail || 'EDA 결과를 불러오지 못했습니다.')
+      }
+    }
+    hydrateStoredUpload()
+  }, [uploadedFile?.file_id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleUpload() {
     const validationMessage = validateFile(file)
     if (validationMessage) {
@@ -116,30 +160,8 @@ export default function UploadPage() {
       setUploadResult(uploaded)
       setUploadedFile(uploaded)
 
-      const previewData = await getDataPreview(uploaded.file_id)
-      setPreview(previewData)
-
       try {
-        const [summary, correlation] = await Promise.all([
-          getEdaSummary(uploaded.file_id),
-          getEdaCorrelation(uploaded.file_id, { max_features: 30, threshold: 0.8 }),
-        ])
-        setEdaSummary(summary)
-        setEdaCorrelation(correlation)
-
-        const defaultTargetColumn = previewData?.columns?.[previewData?.columns?.length - 1] || ''
-        setTargetInsightColumn(defaultTargetColumn)
-        if (defaultTargetColumn) {
-          await loadTargetInsight(uploaded.file_id, defaultTargetColumn)
-        } else {
-          setTargetInsight(null)
-        }
-
-        const firstFeature = previewData?.columns?.[0]
-        if (firstFeature) {
-          setSelectedFeature(firstFeature)
-          await loadFeatureProfile(uploaded.file_id, firstFeature)
-        }
+        await loadPreviewAndEda(uploaded.file_id)
       } catch (edaError) {
         setEdaSummary(null)
         setEdaCorrelation(null)

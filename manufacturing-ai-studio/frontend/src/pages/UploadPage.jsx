@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { KO } from '../constants/korean'
 import { getDataPreview, uploadDataFile } from '../api/data.api'
-import { getEdaCorrelation, getEdaFeatureProfile, getEdaSummary } from '../api/eda.api'
+import { getEdaCorrelation, getEdaFeatureProfile, getEdaSummary, getEdaTargetInsight } from '../api/eda.api'
 import EdaCorrelation from '../components/data/EdaCorrelation'
 import EdaFeatureProfile from '../components/data/EdaFeatureProfile'
+import EdaTargetInsight from '../components/data/EdaTargetInsight'
 import DataPreview from '../components/data/DataPreview'
 import EdaOverview from '../components/data/EdaOverview'
 import FileDropzone from '../components/data/FileDropzone'
@@ -35,6 +36,9 @@ export default function UploadPage() {
   const [preview, setPreview] = useState(null)
   const [edaSummary, setEdaSummary] = useState(null)
   const [edaCorrelation, setEdaCorrelation] = useState(null)
+  const [targetInsight, setTargetInsight] = useState(null)
+  const [targetInsightColumn, setTargetInsightColumn] = useState('')
+  const [isTargetInsightLoading, setIsTargetInsightLoading] = useState(false)
   const [featureProfile, setFeatureProfile] = useState(null)
   const [selectedFeature, setSelectedFeature] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -49,6 +53,9 @@ export default function UploadPage() {
     setPreview(null)
     setEdaSummary(null)
     setEdaCorrelation(null)
+    setTargetInsight(null)
+    setTargetInsightColumn('')
+    setIsTargetInsightLoading(false)
     setFeatureProfile(null)
     setSelectedFeature('')
 
@@ -72,6 +79,26 @@ export default function UploadPage() {
   async function handleSelectFeature(featureName) {
     setSelectedFeature(featureName)
     await loadFeatureProfile(uploadResult?.file_id, featureName)
+  }
+
+  async function loadTargetInsight(fileId, targetColumn) {
+    if (!fileId || !targetColumn) return
+    setIsTargetInsightLoading(true)
+    try {
+      const insight = await getEdaTargetInsight(fileId, { target_column: targetColumn, top_n: 8 })
+      setTargetInsight(insight)
+      setEdaErrorMessage('')
+    } catch (error) {
+      setTargetInsight(null)
+      setEdaErrorMessage(error?.response?.data?.detail || '타겟 인사이트를 불러오지 못했습니다.')
+    } finally {
+      setIsTargetInsightLoading(false)
+    }
+  }
+
+  async function handleSelectTargetInsight(targetColumn) {
+    setTargetInsightColumn(targetColumn)
+    await loadTargetInsight(uploadResult?.file_id, targetColumn)
   }
 
   async function handleUpload() {
@@ -100,6 +127,14 @@ export default function UploadPage() {
         setEdaSummary(summary)
         setEdaCorrelation(correlation)
 
+        const defaultTargetColumn = previewData?.columns?.[previewData?.columns?.length - 1] || ''
+        setTargetInsightColumn(defaultTargetColumn)
+        if (defaultTargetColumn) {
+          await loadTargetInsight(uploaded.file_id, defaultTargetColumn)
+        } else {
+          setTargetInsight(null)
+        }
+
         const firstFeature = previewData?.columns?.[0]
         if (firstFeature) {
           setSelectedFeature(firstFeature)
@@ -108,6 +143,8 @@ export default function UploadPage() {
       } catch (edaError) {
         setEdaSummary(null)
         setEdaCorrelation(null)
+        setTargetInsight(null)
+        setTargetInsightColumn('')
         setFeatureProfile(null)
         setSelectedFeature('')
         setEdaErrorMessage(edaError?.response?.data?.detail || 'EDA 결과를 불러오지 못했습니다.')
@@ -175,6 +212,13 @@ export default function UploadPage() {
 
       <DataPreview preview={preview} />
       <EdaOverview summary={edaSummary} />
+      <EdaTargetInsight
+        columns={preview?.columns || []}
+        targetColumn={targetInsightColumn}
+        onChangeTarget={handleSelectTargetInsight}
+        insight={targetInsight}
+        isLoading={isTargetInsightLoading}
+      />
       <EdaCorrelation correlation={edaCorrelation} />
       <EdaFeatureProfile
         columns={preview?.columns || []}

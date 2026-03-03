@@ -10,6 +10,7 @@ services:
     volumes:
       - ./backend/data:/app/data
       - ./backend/templates:/app/templates
+      - ./mlflow-data:/mlflow
     environment:
       - DATABASE_URL=sqlite:///./data/manufacturing_ai.db
       - MLFLOW_TRACKING_URI=http://mlflow:5000

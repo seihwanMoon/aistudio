@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
-from services.eda_service import get_eda_correlation, get_eda_summary, get_feature_profile
+from services.eda_service import get_eda_correlation, get_eda_summary, get_feature_profile, get_target_insight
 
 router = APIRouter()
+
+
+class TargetInsightRequest(BaseModel):
+    target_column: str
+    top_n: int = 10
 
 
 @router.get("/{file_id}/summary")
@@ -49,6 +55,22 @@ def eda_feature_profile(file_id: str, feature_name: str, target_column: str | No
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"EDA feature profile 생성 실패: {exc}") from exc
+
+
+@router.post("/{file_id}/target-insight")
+def eda_target_insight(file_id: str, payload: TargetInsightRequest):
+    try:
+        return get_target_insight(
+            file_id=file_id,
+            target_column=payload.target_column,
+            top_n=payload.top_n,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"EDA target insight 생성 실패: {exc}") from exc
 
 
 @router.get("/health")

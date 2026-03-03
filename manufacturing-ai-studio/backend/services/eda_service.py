@@ -325,3 +325,123 @@ def get_feature_profile(file_id: str, feature_name: str, target_column: str | No
             }
 
     return _to_builtin(payload)
+
+
+def _detect_target_task_type(target: pd.Series) -> str:
+    non_null = target.dropna()
+    if non_null.empty:
+        return "unknown"
+    if not pd.api.types.is_numeric_dtype(non_null):
+        return "classification"
+
+    unique_count = int(non_null.nunique())
+    dynamic_threshold = max(2, min(20, int(len(non_null) * 0.05)))
+    if unique_count <= dynamic_threshold:
+        return "classification"
+    return "regression"
+
+
+def _eta_squared(numeric_feature: pd.Series, target: pd.Series) -> float:
+    frame = pd.DataFrame({"feature": numeric_feature, "target": target}).dropna()
+    if len(frame) < 3 or frame["target"].nunique() <= 1:
+        return 0.0
+
+    mean_total = float(frame["feature"].mean())
+    ss_total = float(((frame["feature"] - mean_total) ** 2).sum())
+    if ss_total <= 0:
+        return 0.0
+
+    ss_between = float(
+        frame.groupby("target")["feature"]
+        .apply(lambda group: len(group) * float((group.mean() - mean_total) ** 2))
+        .sum()
+    )
+    return max(0.0, min(1.0, ss_between / ss_total))
+
+
+def get_target_insight(file_id: str, target_column: str, top_n: int = 10) -> dict:
+    df, _ = _read_dataframe(file_id)
+    if target_column not in df.columns:
+        raise KeyError("요청한 target_column을 찾을 수 없습니다.")
+
+    target = df[target_column]
+    task_type = _detect_target_task_type(target)
+    numeric_features = [str(col) for col in df.select_dtypes(include=["number"]).columns if col != target_column]
+
+    if task_type == "regression":
+        target_numeric = pd.to_numeric(target, errors="coerce")
+        non_null_target = target_numeric.dropna()
+        if non_null_target.empty:
+            target_summary = {"type": "regression", "count": 0}
+        else:
+            target_summary = {
+                "type": "regression",
+                "count": int(non_null_target.shape[0]),
+                "min": float(non_null_target.min()),
+                "max": float(non_null_target.max()),
+                "mean": float(non_null_target.mean()),
+                "std": float(non_null_target.std(ddof=0)),
+                "q25": float(non_null_target.quantile(0.25)),
+                "q50": float(non_null_target.quantile(0.5)),
+                "q75": float(non_null_target.quantile(0.75)),
+            }
+    else:
+        vc = target.fillna("<<MISSING>>").astype(str).value_counts()
+        total = max(int(vc.sum()), 1)
+        target_summary = {
+            "type": "classification",
+            "count": total,
+            "class_distribution": [
+                {"label": str(label), "count": int(count), "ratio": float(count / total)}
+                for label, count in vc.head(20).items()
+            ],
+        }
+
+    scores = []
+    for feature in numeric_features:
+        series = pd.to_numeric(df[feature], errors="coerce")
+        if task_type == "regression":
+            target_numeric = pd.to_numeric(target, errors="coerce")
+            joined = pd.concat([series, target_numeric], axis=1).dropna()
+            if len(joined) < 3:
+                continue
+            score = float(joined.iloc[:, 0].corr(joined.iloc[:, 1], method="pearson"))
+            method = "pearson_corr"
+            direction = "positive" if score >= 0 else "negative"
+        else:
+            score = _eta_squared(series, target)
+            method = "eta_squared"
+            direction = "positive"
+
+        if pd.isna(score):
+            continue
+        scores.append(
+            {
+                "feature": feature,
+                "score": float(score),
+                "abs_score": float(abs(score)),
+                "method": method,
+                "direction": direction,
+            }
+        )
+
+    scores.sort(key=lambda item: item["abs_score"], reverse=True)
+    capped_top_n = max(1, min(int(top_n), 30))
+
+    warnings = []
+    if not scores:
+        warnings.append("타겟 인사이트 계산 가능한 numeric feature가 부족합니다.")
+    if task_type == "unknown":
+        warnings.append("타겟 컬럼의 유효한 값이 부족합니다.")
+
+    return _to_builtin(
+        {
+            "file_id": file_id,
+            "target_column": target_column,
+            "task_type": task_type,
+            "target_summary": target_summary,
+            "numeric_feature_count": len(numeric_features),
+            "top_related_features": scores[:capped_top_n],
+            "warnings": warnings,
+        }
+    )

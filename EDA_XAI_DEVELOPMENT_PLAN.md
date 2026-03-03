@@ -161,27 +161,27 @@
 
 ## 10) 단계별 실행 계획
 ## Phase 0: 기반 보강
-- [ ] Dockerfile에 `libgomp1` 추가
+- [x] Dockerfile에 `libgomp1` 추가
 - [ ] FLAML import 헬스체크 endpoint 추가(선택)
-- [ ] 캐시 디렉터리 초기화 로직 추가
+- [x] 캐시 디렉터리 초기화 로직 추가
 
 ## Phase 1: EDA API
-- [ ] `eda_service.py` 구현(quality/summary/correlation/feature-profile)
-- [ ] `eda.py` router 구현 및 main 등록
-- [ ] 업로드 후 자동 EDA 호출 옵션 추가
+- [x] `eda_service.py` 구현(quality/summary/correlation/feature-profile)
+- [x] `eda.py` router 구현 및 main 등록
+- [x] 업로드 후 자동 EDA 호출 옵션 추가
 - [ ] 단위 테스트 작성
 
 ## Phase 2: XAI API
-- [ ] `xai_service.py` 구현(ShapExplainer wrapper, local/global)
-- [ ] `xai.py` router 구현
-- [ ] 예측 단건/배치 결과와 연결
-- [ ] MLflow artifact logging 연계
+- [x] `xai_service.py` 구현(ShapExplainer wrapper, local/global)
+- [x] `xai.py` router 구현
+- [x] 예측 단건/배치 결과와 연결
+- [x] MLflow artifact logging 연계
 
 ## Phase 3: 프론트 대시보드
-- [ ] UploadPage에 EDA 탭 추가
-- [ ] ResultsPage에 Global XAI 섹션 추가
-- [ ] PredictPage에 Local 설명 탭 추가
-- [ ] 피처 클릭 드릴다운(EDA ↔ XAI) 연결
+- [x] UploadPage에 EDA 탭 추가
+- [x] ResultsPage에 Global XAI 섹션 추가
+- [x] PredictPage에 Local 설명 탭 추가
+- [x] 피처 클릭 드릴다운(EDA ↔ XAI) 연결
 
 ## Phase 4: 안정화
 - [ ] 캐시/샘플링/timeout 튜닝

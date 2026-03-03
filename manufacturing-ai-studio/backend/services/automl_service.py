@@ -21,6 +21,7 @@ from database import SessionLocal
 from models import Experiment, Model
 from services.data_service import load_dataframe
 from services.drift_service import save_baseline_from_training
+from services.eda_service import get_eda_correlation, get_eda_summary
 from services.mlflow_utils import EXPERIMENT_NAME, ensure_experiment
 
 MODEL_DIR = Path("data/models")
@@ -42,6 +43,62 @@ def _build_feature_importance(model, feature_columns: list[str]) -> dict[str, fl
         return {col: 0.0 for col in feature_columns}
     values = model.feature_importances_.tolist()
     return {col: float(score) for col, score in zip(feature_columns, values)}
+
+
+def _log_eda_xai_artifacts_to_mlflow(mlflow_run_id: str | None, file_id: str, model_id: int) -> dict:
+    status = {
+        "eda_summary_logged": False,
+        "eda_correlation_logged": False,
+        "xai_global_logged": False,
+    }
+    if mlflow is None or not mlflow_run_id:
+        return status
+
+    eda_summary = None
+    eda_correlation = None
+    xai_global = None
+
+    try:
+        eda_summary = get_eda_summary(file_id=file_id, use_cache=True)
+    except Exception:
+        eda_summary = None
+    try:
+        eda_correlation = get_eda_correlation(file_id=file_id, method="pearson", max_features=30, threshold=0.8, use_cache=True)
+    except Exception:
+        eda_correlation = None
+    try:
+        from services.xai_service import get_global_explanation
+
+        xai_global = get_global_explanation(model_id=model_id, sample_size=1000, top_n=15)
+    except Exception:
+        xai_global = None
+
+    try:
+        with mlflow.start_run(run_id=mlflow_run_id):
+            if eda_summary is not None:
+                mlflow.log_dict(eda_summary, "eda/summary.json")
+                status["eda_summary_logged"] = True
+            if eda_correlation is not None:
+                mlflow.log_dict(eda_correlation, "eda/correlation.json")
+                status["eda_correlation_logged"] = True
+            if xai_global is not None:
+                mlflow.log_dict(xai_global, "xai/global_shap.json")
+                status["xai_global_logged"] = True
+
+            tags = {}
+            if eda_summary is not None:
+                tags["eda_quality_score"] = str(eda_summary.get("quality_score", ""))
+            if xai_global is not None:
+                top_features = xai_global.get("top_features", [])
+                if top_features:
+                    tags["xai_top_feature"] = str(top_features[0].get("feature", ""))
+                tags["xai_sample_size"] = str(xai_global.get("sample_size", 0))
+            if tags:
+                mlflow.set_tags(tags)
+    except Exception:
+        return status
+
+    return status
 
 
 def _run_training(session_id: str, file_id: str, target_column: str, feature_columns: list[str], time_budget: int, task_type: str):
@@ -167,6 +224,11 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
         db.refresh(trained_model)
 
         save_baseline_from_training(trained_model.id, X_train)
+        artifact_log_status = _log_eda_xai_artifacts_to_mlflow(
+            mlflow_run_id=mlflow_run_id,
+            file_id=file_id,
+            model_id=trained_model.id,
+        )
 
         result_payload = {
             "mlflow_run_id": mlflow_run_id,
@@ -178,6 +240,7 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
             "task_type": task_type,
             "target_column": target_column,
             "feature_columns": feature_columns,
+            "mlflow_artifacts": artifact_log_status,
         }
 
         session.update({"status": "done", "progress": 100, "logs": session["logs"] + ["학습 세션 완료"], "result": result_payload})

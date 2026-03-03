@@ -64,6 +64,11 @@ docker-compose down
 - 최대 50MB
 - CSV 인코딩 자동 감지(chardet)
 - 업로드 직후 Preview(상위 100행, 컬럼 타입, 결측치 수)
+- 업로드 직후 EDA 자동 분석
+  - 품질 점수/결측/중복/상수 컬럼 요약
+  - 상관관계 히트맵 데이터(상관 높은 페어)
+  - 피처별 프로필(분포/이상치 비율)
+  - 타겟 인사이트(타겟 기준 연관 Top Features)
 - 샘플 파일 다운로드 버튼 제공
 
 권장 확인 포인트:
@@ -138,11 +143,18 @@ PDF 리포트:
    - 분류: `accuracy`, `f1_score`, `primary_metric`
    - 회귀: `r2_score`, `mae`, `primary_metric`
 5. Artifacts에서 `model` 확인
+   - `training_summary.json`
+   - `eda/summary.json`, `eda/correlation.json`
+   - `xai/global_shap.json`
 
 앱과 연결해서 쓰는 방법:
 - 앱 `모델 히스토리`에서 run_id 확인
 - 앱 `레지스트리`에서 `model_name + run_id`로 등록
 - 등록 후 `Production 승격` 가능
+
+중요(아티팩트 저장):
+- `docker-compose.yml`에서 backend와 mlflow가 같은 `./mlflow-data:/mlflow` 볼륨을 공유해야
+  MLflow UI에서 artifact가 정상 보입니다.
 
 ## 6. MLOps 기능 상세
 
@@ -228,11 +240,20 @@ feature_a,feature_b,feature_c
 - 데이터
   - `POST /api/data/upload`
   - `GET /api/data/{file_id}/preview`
+- EDA
+  - `GET /api/eda/{file_id}/summary`
+  - `GET /api/eda/{file_id}/correlation`
+  - `GET /api/eda/{file_id}/feature/{feature_name}`
+  - `POST /api/eda/{file_id}/target-insight`
 - 학습
   - `POST /api/train/start`
   - `GET /api/train/status/{session_id}`
   - `GET /api/train/results/{model_id}`
   - `POST /api/train/retrain/{model_id}`
+- XAI
+  - `GET /api/xai/global/{model_id}`
+  - `POST /api/xai/local`
+  - `POST /api/xai/pdp`
 - 예측
   - `POST /api/predict/single`
   - `POST /api/predict/batch?model_id={id}`
@@ -301,6 +322,14 @@ FRONTEND_PORT=43000 docker-compose up -d --build
 - 같은 세션에서 결과 확인/예측까지 진행
 - 필요 시 다시 학습 실행 후 진행
 
+### 9.6 콘솔에 `chrome-extension://... postMessage` 에러가 반복됨
+설명:
+- 브라우저 확장 프로그램에서 발생하는 메시지로, 앱 백엔드 에러가 아닙니다.
+
+대응:
+- 시크릿 모드(확장 비활성) 또는 확장 프로그램 OFF 후 재확인
+- 실제 앱 오류는 Network 탭의 `/api/*` 응답 코드 기준으로 판단
+
 ## 10. 권장 운영 절차(요약)
 
 1. `docker-compose up -d --build`
@@ -313,4 +342,3 @@ FRONTEND_PORT=43000 docker-compose up -d --build
 8. `/model-history`, `/registry`로 버전 관리
 9. `/drift` 주기 점검
 10. `/realtime`로 파일 감시 기반 실시간 관제
-

@@ -21,7 +21,7 @@ from sklearn.model_selection import train_test_split
 
 from database import SessionLocal
 from models import Experiment, Model
-from services.data_service import load_dataframe
+from services.data_service import get_upload_metadata, load_dataframe
 from services.drift_service import save_baseline_from_training
 from services.eda_service import get_eda_correlation, get_eda_summary
 from services.mlflow_utils import EXPERIMENT_NAME, ensure_experiment
@@ -173,6 +173,9 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
     session = TRAINING_SESSIONS[session_id]
     db = SessionLocal()
     mlflow_run_id = None
+    upload_meta = get_upload_metadata(file_id)
+    data_key = str(upload_meta.get("data_key", file_id))
+    data_name = str(upload_meta.get("original_filename", f"{file_id}.csv"))
     try:
         session.update({"status": "running", "progress": 10, "logs": ["학습 세션 시작"]})
         _persist_training_sessions()
@@ -217,7 +220,7 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
 
         if mlflow is not None:
             try:
-                with mlflow.start_run(run_name=_build_mlflow_run_name(session_id)) as run:
+                with mlflow.start_run(run_name=_build_mlflow_run_name(session_id=session_id)) as run:
                     mlflow_run_id = run.info.run_id
                     mlflow.log_params({
                         "task_type": task_type,
@@ -232,8 +235,10 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
                     mlflow.set_tags({
                         "project": "manufacturing_ai_studio",
                         "pipeline": "automl_training",
-                        "session_id": session_id,
-                        "data_file_id": file_id,
+                        "training_session_id": session_id,
+                        "data_id": file_id,
+                        "data_key": data_key,
+                        "data_name": data_name,
                         "task_type": task_type,
                         "target_column": target_column,
                         "model_family": "random_forest",
@@ -305,6 +310,8 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
                 "model_id": trained_model.id,
                 "experiment_id": experiment.id,
                 "file_id": file_id,
+                "data_key": data_key,
+                "data_name": data_name,
                 "target_column": target_column,
                 "feature_columns": feature_columns,
                 "task_type": task_type,
@@ -338,6 +345,8 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
             "target_column": target_column,
             "feature_columns": feature_columns,
             "file_id": file_id,
+            "data_key": data_key,
+            "data_name": data_name,
             "mlflow_artifacts": artifact_log_status,
         }
 
@@ -365,7 +374,12 @@ def start_training(
     session_id: str | None = None,
     resumed: bool = False,
 ) -> str:
-    resolved_session_id = session_id or f"session-{int(time.time() * 1000)}"
+    if session_id:
+        resolved_session_id = session_id
+    else:
+        upload_meta = get_upload_metadata(file_id)
+        data_slug = str(upload_meta.get("data_slug", "dataset"))
+        resolved_session_id = f"session-{data_slug}-{int(time.time() * 1000)}"
     TRAINING_SESSIONS[resolved_session_id] = {
         "status": "queued",
         "progress": 0,
@@ -436,6 +450,8 @@ def get_model_result(model_id: int) -> dict:
         feature_columns = artifact["feature_columns"]
         importances = _build_feature_importance(model_obj, feature_columns)
         metadata = _load_model_metadata(Path(model.model_path))
+        file_id = metadata.get("file_id")
+        upload_meta = get_upload_metadata(str(file_id)) if file_id else {}
         return {
             "model_id": model.id,
             "model_name": model.model_name,
@@ -445,7 +461,10 @@ def get_model_result(model_id: int) -> dict:
             "feature_importance": importances,
             "target_column": artifact["target_column"],
             "feature_columns": feature_columns,
-            "file_id": metadata.get("file_id"),
+            "file_id": file_id,
+            "data_id": file_id,
+            "data_key": metadata.get("data_key") or upload_meta.get("data_key"),
+            "data_name": metadata.get("data_name") or upload_meta.get("original_filename"),
             "mlflow_run_id": metadata.get("mlflow_run_id"),
             "training_time": metadata.get("training_time"),
             "experiment_name": experiment.name if experiment else None,

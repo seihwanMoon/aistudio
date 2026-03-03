@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from services.data_service import build_preview, load_dataframe, save_upload
+from services.data_service import build_preview, get_upload_metadata, load_dataframe, save_upload
 
 router = APIRouter()
 
@@ -12,7 +12,11 @@ async def upload_data(file: UploadFile = File(...)):
     content = await file.read()
     try:
         file_id, saved_path = save_upload(file.filename or "uploaded.csv", content)
+        meta = get_upload_metadata(file_id)
         return {
+            "data_id": file_id,
+            "data_key": meta.get("data_key"),
+            "data_name": meta.get("original_filename"),
             "file_id": file_id,
             "filename": file.filename,
             "saved_path": str(saved_path),
@@ -33,7 +37,11 @@ def preview_data(file_id: str):
     try:
         df, encoding = load_dataframe(file_path)
         payload = build_preview(df)
+        meta = get_upload_metadata(file_id)
         payload["encoding"] = encoding
+        payload["data_id"] = file_id
+        payload["data_key"] = meta.get("data_key")
+        payload["data_name"] = meta.get("original_filename")
         payload["file_id"] = file_id
         return payload
     except Exception as e:  # noqa: BLE001

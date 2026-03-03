@@ -21,6 +21,9 @@ export default function DataPreview({ preview }) {
       <p style={{ margin: '0 0 12px', color: '#4b5563' }}>
         총 {preview.total_rows}행 / {preview.total_columns}열, 인코딩: {preview.encoding || 'xlsx'}
       </p>
+      <p style={{ margin: '0 0 10px', color: '#475569', fontSize: 13 }}>
+        데이터명: {preview.data_name || '-'} / 데이터 키: {preview.data_key || preview.file_id} / 데이터 ID: {preview.data_id || preview.file_id}
+      </p>
 
       <div
         style={{

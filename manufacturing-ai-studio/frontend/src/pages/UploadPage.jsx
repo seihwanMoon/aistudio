@@ -238,7 +238,9 @@ export default function UploadPage() {
           }}
         >
           <strong>{KO.upload.success}</strong>
-          <div style={{ marginTop: 4, fontSize: 14 }}>file_id: {uploadResult.file_id}</div>
+          <div style={{ marginTop: 4, fontSize: 14 }}>데이터명: {uploadResult.data_name || uploadResult.filename || '-'}</div>
+          <div style={{ marginTop: 2, fontSize: 14 }}>데이터 키: {uploadResult.data_key || uploadResult.file_id}</div>
+          <div style={{ marginTop: 2, fontSize: 14 }}>데이터 ID: {uploadResult.data_id || uploadResult.file_id}</div>
         </div>
       )}
 

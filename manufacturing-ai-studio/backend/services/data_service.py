@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import re
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -12,6 +15,51 @@ ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 
+def _safe_filename(filename: str | None) -> str:
+    name = Path(filename or "uploaded.csv").name
+    return name or "uploaded.csv"
+
+
+def _build_data_slug(filename: str | None) -> str:
+    stem = Path(_safe_filename(filename)).stem
+    normalized = re.sub(r"[^A-Za-z0-9_-]+", "_", stem).strip("_").lower()
+    if not normalized:
+        return "dataset"
+    return normalized[:60]
+
+
+def build_data_key(file_id: str, filename: str | None = None) -> str:
+    return f"{_build_data_slug(filename)}_{file_id}"
+
+
+def _meta_path(file_id: str) -> Path:
+    return UPLOAD_DIR / f"{file_id}.meta.json"
+
+
+def get_upload_metadata(file_id: str) -> dict:
+    path = _meta_path(file_id)
+    if path.exists():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                return payload
+        except Exception:  # noqa: BLE001
+            pass
+
+    original_filename = f"{file_id}.csv"
+    for ext in (".csv", ".xlsx"):
+        if (UPLOAD_DIR / f"{file_id}{ext}").exists():
+            original_filename = f"{file_id}{ext}"
+            break
+    return {
+        "data_id": file_id,
+        "file_id": file_id,
+        "original_filename": original_filename,
+        "data_key": build_data_key(file_id=file_id, filename=original_filename),
+        "data_slug": _build_data_slug(original_filename),
+    }
+
+
 def _detect_encoding(file_path: Path) -> str:
     with file_path.open("rb") as f:
         sample = f.read(1024 * 1024)
@@ -20,7 +68,8 @@ def _detect_encoding(file_path: Path) -> str:
 
 
 def save_upload(filename: str, content: bytes) -> tuple[str, Path]:
-    ext = Path(filename).suffix.lower()
+    safe_filename = _safe_filename(filename)
+    ext = Path(safe_filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise ValueError("지원하지 않는 파일 형식입니다. CSV 또는 XLSX만 업로드 가능합니다.")
     if len(content) > MAX_FILE_SIZE:
@@ -29,6 +78,22 @@ def save_upload(filename: str, content: bytes) -> tuple[str, Path]:
     file_id = uuid4().hex
     saved_path = UPLOAD_DIR / f"{file_id}{ext}"
     saved_path.write_bytes(content)
+    _meta_path(file_id).write_text(
+        json.dumps(
+            {
+                "data_id": file_id,
+                "file_id": file_id,
+                "original_filename": safe_filename,
+                "saved_filename": saved_path.name,
+                "data_key": build_data_key(file_id=file_id, filename=safe_filename),
+                "data_slug": _build_data_slug(safe_filename),
+                "uploaded_at": time.time(),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return file_id, saved_path
 
 

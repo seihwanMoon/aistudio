@@ -5,6 +5,7 @@ from pathlib import Path
 from string import Template
 
 from services.automl_service import get_model_result
+from services.data_service import get_upload_metadata
 from services.eda_service import get_eda_correlation, get_eda_summary
 from services.xai_service import get_global_explanation
 
@@ -76,6 +77,15 @@ def _resolve_file_id(base_payload: dict, xai_payload: dict | None) -> str | None
     return None
 
 
+def _resolve_data_meta(file_id: str | None, payload: dict) -> tuple[str | None, str | None]:
+    if not file_id:
+        return payload.get("data_name"), payload.get("data_key")
+    meta = get_upload_metadata(file_id)
+    data_name = payload.get("data_name") or meta.get("original_filename")
+    data_key = payload.get("data_key") or meta.get("data_key")
+    return data_name, data_key
+
+
 def _enrich_payload(base_payload: dict) -> dict:
     payload = dict(base_payload)
     payload["eda_summary"] = None
@@ -94,6 +104,10 @@ def _enrich_payload(base_payload: dict) -> dict:
 
     file_id = _resolve_file_id(payload, payload.get("xai_global"))
     payload["file_id"] = file_id
+    payload["data_id"] = file_id
+    data_name, data_key = _resolve_data_meta(file_id=file_id, payload=payload)
+    payload["data_name"] = data_name
+    payload["data_key"] = data_key
 
     if file_id:
         try:
@@ -218,7 +232,9 @@ def _render_html(payload: dict) -> str:
         feature_count=len(payload.get("feature_columns") or []),
         created_at=payload.get("created_at", "N/A"),
         experiment_name=payload.get("experiment_name") or "N/A",
-        source_file_id=payload.get("file_id") or "N/A",
+        source_data_id=payload.get("data_id") or "N/A",
+        source_data_name=payload.get("data_name") or "N/A",
+        source_data_key=payload.get("data_key") or "N/A",
         training_time=(f"{float(payload.get('training_time')):.3f}s" if payload.get("training_time") is not None else "N/A"),
         model_feature_rows=_render_rank_rows(model_importance) or "<tr><td colspan='3'>피처 정보가 없습니다.</td></tr>",
         model_feature_bars=_render_bars(model_importance, top_n=5),

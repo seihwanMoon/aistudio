@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 import { getTrainingResults } from '../api/train.api'
 import { downloadReport } from '../api/report.api'
-import { getGlobalXai } from '../api/xai.api'
+import { getGlobalXai, getPdp } from '../api/xai.api'
 import { KO } from '../constants/korean'
 import { useAppStore } from '../store/useAppStore'
 
@@ -19,6 +19,12 @@ export default function ResultsPage() {
   const [globalChartWidth, setGlobalChartWidth] = useState(0)
   const [globalXai, setGlobalXai] = useState(null)
   const [globalXaiError, setGlobalXaiError] = useState('')
+  const [selectedPdpFeature, setSelectedPdpFeature] = useState('')
+  const [pdpData, setPdpData] = useState([])
+  const [pdpError, setPdpError] = useState('')
+  const [isPdpLoading, setIsPdpLoading] = useState(false)
+  const pdpChartRef = useRef(null)
+  const [pdpChartWidth, setPdpChartWidth] = useState(0)
 
   useEffect(() => {
     async function loadResult() {
@@ -40,13 +46,41 @@ export default function ResultsPage() {
         const data = await getGlobalXai(trainedModelId, { top_n: 10, sample_size: 1000 })
         setGlobalXai(data)
         setGlobalXaiError('')
+        const first = data?.top_features?.[0]?.feature
+        if (first) {
+          setSelectedPdpFeature(first)
+        }
       } catch (error) {
         setGlobalXai(null)
+        setSelectedPdpFeature('')
+        setPdpData([])
         setGlobalXaiError(error?.response?.data?.detail || 'XAI 결과를 불러오지 못했습니다.')
       }
     }
     loadGlobalXai()
   }, [trainedModelId])
+
+  useEffect(() => {
+    async function loadPdp() {
+      if (!trainedModelId || !selectedPdpFeature) return
+      setIsPdpLoading(true)
+      try {
+        const data = await getPdp({
+          model_id: trainedModelId,
+          feature_name: selectedPdpFeature,
+          grid_points: 20,
+        })
+        setPdpData((data?.points || []).map((point) => ({ x: point.x, y: point.y })))
+        setPdpError('')
+      } catch (error) {
+        setPdpData([])
+        setPdpError(error?.response?.data?.detail || 'PDP를 불러오지 못했습니다.')
+      } finally {
+        setIsPdpLoading(false)
+      }
+    }
+    loadPdp()
+  }, [trainedModelId, selectedPdpFeature])
 
   useEffect(() => {
     const element = chartContainerRef.current
@@ -72,6 +106,19 @@ export default function ResultsPage() {
       setGlobalChartWidth(nextWidth > 0 ? nextWidth : 0)
     }
 
+    updateWidth()
+    const observer = new ResizeObserver(updateWidth)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const element = pdpChartRef.current
+    if (!element) return
+    const updateWidth = () => {
+      const nextWidth = Math.floor(element.getBoundingClientRect().width)
+      setPdpChartWidth(nextWidth > 0 ? nextWidth : 0)
+    }
     updateWidth()
     const observer = new ResizeObserver(updateWidth)
     observer.observe(element)
@@ -172,6 +219,44 @@ export default function ResultsPage() {
           ) : (
             <div style={{ height: 280, display: 'flex', alignItems: 'center', color: '#6b7280' }}>
               {globalXaiError ? 'XAI 결과를 확인해 주세요.' : 'XAI 데이터를 불러오는 중입니다.'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 20, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#fff' }}>
+        <h3>XAI Partial Dependence</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+          {globalXaiData.map((item) => (
+            <button
+              key={item.name}
+              type="button"
+              onClick={() => setSelectedPdpFeature(item.name)}
+              style={{
+                border: selectedPdpFeature === item.name ? '1px solid #0ea5e9' : '1px solid #d1d5db',
+                backgroundColor: selectedPdpFeature === item.name ? '#e0f2fe' : '#fff',
+                borderRadius: 999,
+                padding: '4px 10px',
+                cursor: 'pointer',
+              }}
+            >
+              {item.name}
+            </button>
+          ))}
+        </div>
+        {pdpError && <p style={{ color: '#dc2626' }}>{pdpError}</p>}
+        <div ref={pdpChartRef} style={{ width: '100%', minHeight: 260 }}>
+          {pdpChartWidth > 0 && pdpData.length > 0 ? (
+            <LineChart width={pdpChartWidth} height={260} data={pdpData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="x" tickFormatter={(value) => Number(value).toFixed(1)} />
+              <YAxis />
+              <Tooltip formatter={(value) => Number(value).toFixed(4)} />
+              <Line type="monotone" dataKey="y" stroke="#0ea5e9" dot={false} />
+            </LineChart>
+          ) : (
+            <div style={{ height: 260, display: 'flex', alignItems: 'center', color: '#6b7280' }}>
+              {isPdpLoading ? 'PDP 계산 중...' : 'PDP 데이터를 선택해 주세요.'}
             </div>
           )}
         </div>

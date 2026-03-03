@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { KO } from '../constants/korean'
 import { getDataPreview, uploadDataFile } from '../api/data.api'
+import { getEdaCorrelation, getEdaFeatureProfile, getEdaSummary } from '../api/eda.api'
+import EdaCorrelation from '../components/data/EdaCorrelation'
+import EdaFeatureProfile from '../components/data/EdaFeatureProfile'
 import DataPreview from '../components/data/DataPreview'
 import EdaOverview from '../components/data/EdaOverview'
 import FileDropzone from '../components/data/FileDropzone'
-import { getEdaSummary } from '../api/eda.api'
 import { useAppStore } from '../store/useAppStore'
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -32,8 +34,12 @@ export default function UploadPage() {
   const [uploadResult, setUploadResult] = useState(null)
   const [preview, setPreview] = useState(null)
   const [edaSummary, setEdaSummary] = useState(null)
+  const [edaCorrelation, setEdaCorrelation] = useState(null)
+  const [featureProfile, setFeatureProfile] = useState(null)
+  const [selectedFeature, setSelectedFeature] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [edaErrorMessage, setEdaErrorMessage] = useState('')
 
   const canUpload = useMemo(() => file && !isLoading, [file, isLoading])
 
@@ -42,9 +48,30 @@ export default function UploadPage() {
     setUploadResult(null)
     setPreview(null)
     setEdaSummary(null)
+    setEdaCorrelation(null)
+    setFeatureProfile(null)
+    setSelectedFeature('')
 
     const validationMessage = validateFile(nextFile)
     setErrorMessage(validationMessage)
+    setEdaErrorMessage('')
+  }
+
+  async function loadFeatureProfile(fileId, featureName) {
+    if (!fileId || !featureName) return
+    try {
+      const profile = await getEdaFeatureProfile(fileId, featureName)
+      setFeatureProfile(profile)
+      setEdaErrorMessage('')
+    } catch (error) {
+      setFeatureProfile(null)
+      setEdaErrorMessage(error?.response?.data?.detail || '피처 프로필을 불러오지 못했습니다.')
+    }
+  }
+
+  async function handleSelectFeature(featureName) {
+    setSelectedFeature(featureName)
+    await loadFeatureProfile(uploadResult?.file_id, featureName)
   }
 
   async function handleUpload() {
@@ -65,8 +92,26 @@ export default function UploadPage() {
       const previewData = await getDataPreview(uploaded.file_id)
       setPreview(previewData)
 
-      const summary = await getEdaSummary(uploaded.file_id)
-      setEdaSummary(summary)
+      try {
+        const [summary, correlation] = await Promise.all([
+          getEdaSummary(uploaded.file_id),
+          getEdaCorrelation(uploaded.file_id, { max_features: 30, threshold: 0.8 }),
+        ])
+        setEdaSummary(summary)
+        setEdaCorrelation(correlation)
+
+        const firstFeature = previewData?.columns?.[0]
+        if (firstFeature) {
+          setSelectedFeature(firstFeature)
+          await loadFeatureProfile(uploaded.file_id, firstFeature)
+        }
+      } catch (edaError) {
+        setEdaSummary(null)
+        setEdaCorrelation(null)
+        setFeatureProfile(null)
+        setSelectedFeature('')
+        setEdaErrorMessage(edaError?.response?.data?.detail || 'EDA 결과를 불러오지 못했습니다.')
+      }
     } catch (error) {
       setErrorMessage(error?.response?.data?.detail || '업로드에 실패했습니다. 파일 형식을 확인해 주세요.')
     } finally {
@@ -130,6 +175,14 @@ export default function UploadPage() {
 
       <DataPreview preview={preview} />
       <EdaOverview summary={edaSummary} />
+      <EdaCorrelation correlation={edaCorrelation} />
+      <EdaFeatureProfile
+        columns={preview?.columns || []}
+        selectedFeature={selectedFeature}
+        onChangeFeature={handleSelectFeature}
+        profile={featureProfile}
+      />
+      {edaErrorMessage && <p style={{ color: '#b45309', marginTop: 10 }}>{edaErrorMessage}</p>}
     </section>
   )
 }

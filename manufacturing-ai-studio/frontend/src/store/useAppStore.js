@@ -1,6 +1,7 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
-export const useAppStore = create((set) => ({
+export const useAppStore = create(persist((set) => ({
   uploadedFile: null,
   targetColumn: '',
   featureColumns: [],
@@ -16,4 +17,15 @@ export const useAppStore = create((set) => ({
   setTrainingSessionId: (trainingSessionId) => set({ trainingSessionId }),
   setTrainedModelId: (trainedModelId) => set({ trainedModelId }),
   setTrainingResult: (trainingResult) => set({ trainingResult }),
+  resetFlow: () => set({
+    uploadedFile: null,
+    targetColumn: '',
+    featureColumns: [],
+    taskType: 'classification',
+    trainingSessionId: null,
+    trainedModelId: null,
+    trainingResult: null,
+  }),
+}), {
+  name: 'app_flow_store',
 }))

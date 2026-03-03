@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
 import { getTrainingResults } from '../api/train.api'
 import { downloadReport } from '../api/report.api'
 import { KO } from '../constants/korean'
@@ -12,6 +12,8 @@ export default function ResultsPage() {
   const trainingResult = useAppStore((state) => state.trainingResult)
   const [result, setResult] = useState(trainingResult)
   const [errorMessage, setErrorMessage] = useState('')
+  const chartContainerRef = useRef(null)
+  const [chartWidth, setChartWidth] = useState(0)
 
   useEffect(() => {
     async function loadResult() {
@@ -25,6 +27,21 @@ export default function ResultsPage() {
     }
     loadResult()
   }, [trainedModelId])
+
+  useEffect(() => {
+    const element = chartContainerRef.current
+    if (!element) return
+
+    const updateWidth = () => {
+      const nextWidth = Math.floor(element.getBoundingClientRect().width)
+      setChartWidth(nextWidth > 0 ? nextWidth : 0)
+    }
+
+    updateWidth()
+    const observer = new ResizeObserver(updateWidth)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   if (!result) {
     return <p>아직 학습 결과가 없습니다.</p>
@@ -79,17 +96,21 @@ export default function ResultsPage() {
         </div>
       )}
 
-      <div style={{ marginTop: 20, height: 320, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#fff' }}>
+      <div style={{ marginTop: 20, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#fff' }}>
         <h3>{KO.results.topFeatures}</h3>
-        <ResponsiveContainer width="100%" height="85%">
-          <BarChart data={featureData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="value" fill="#2563eb" />
-          </BarChart>
-        </ResponsiveContainer>
+        <div ref={chartContainerRef} style={{ width: '100%', minHeight: 260 }}>
+          {chartWidth > 0 ? (
+            <BarChart width={chartWidth} height={260} data={featureData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" fill="#2563eb" />
+            </BarChart>
+          ) : (
+            <div style={{ height: 260 }} />
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>

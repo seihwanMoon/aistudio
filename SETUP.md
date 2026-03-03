@@ -46,7 +46,7 @@ python-multipart==0.0.9
 pandas==2.2.0
 openpyxl==3.1.2
 chardet==5.2.0
-pyarrow==16.0.0
+pyarrow==15.0.2
 
 # ── AutoML ─────────────────────────────────────
 flaml[automl]==2.1.2
@@ -329,8 +329,6 @@ export const KO = {
 
 ### `docker-compose.yml` (Phase 1)
 ```yaml
-version: "3.9"
-
 services:
   backend:
     build:
@@ -350,7 +348,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - backend
     environment:
@@ -365,8 +363,8 @@ FROM python:3.11-slim
 # WeasyPrint 의존성 (한국어 PDF)
 RUN apt-get update && apt-get install -y \
     libpango-1.0-0 libpangocairo-1.0-0 \
-    libcairo2 libgdk-pixbuf2.0-0 \
-    fonts-nanum \
+    libcairo2 libgdk-pixbuf-2.0-0 \
+    fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -430,10 +428,12 @@ server {
 ```bash
 # 전체 스택 빌드 및 기동
 cd manufacturing-ai-studio
-docker-compose up --build
+docker-compose up -d --build
+# 포트 3000 충돌 시
+# FRONTEND_PORT=43000 docker-compose up -d --build
 
 # 검증 체크리스트
-# [ ] http://localhost:3000  → React 앱 홈 화면 표시
+# [ ] http://localhost:3000 (또는 FRONTEND_PORT)  → React 앱 홈 화면 표시
 # [ ] http://localhost:8000/docs → FastAPI Swagger UI 표시
 # [ ] http://localhost:8000  → {"message": "Manufacturing AI Studio API v1.0"}
 ```

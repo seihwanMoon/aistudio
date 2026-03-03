@@ -2,28 +2,196 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
-    <title>학습 리포트</title>
+    <title>Manufacturing AI Studio - 분석 리포트</title>
     <style>
-      body { font-family: 'Malgun Gothic', sans-serif; margin: 32px; }
-      h1 { margin-bottom: 8px; }
-      .meta { color: #4b5563; margin-bottom: 24px; }
-      .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+      @page {
+        size: A4;
+        margin: 20mm 16mm;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: "Noto Sans CJK KR", "Malgun Gothic", sans-serif;
+        margin: 0;
+        color: #111827;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .header {
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+        color: #ffffff;
+      }
+      .header h1 {
+        font-size: 22px;
+        margin: 0 0 4px 0;
+      }
+      .header p {
+        margin: 0;
+        color: #dbeafe;
+      }
+      .section {
+        margin-top: 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+        background: #ffffff;
+      }
+      .section h2 {
+        margin: 0 0 8px 0;
+        font-size: 15px;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+      }
+      .summary-card {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 8px;
+        background: #f9fafb;
+      }
+      .summary-label {
+        font-size: 11px;
+        color: #4b5563;
+      }
+      .summary-value {
+        margin-top: 2px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .grade {
+        display: inline-block;
+        min-width: 30px;
+        text-align: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #dbeafe;
+        color: #1d4ed8;
+        font-weight: 700;
+      }
+      .kv {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .kv th, .kv td {
+        border: 1px solid #e5e7eb;
+        padding: 6px 8px;
+        text-align: left;
+      }
+      .kv th {
+        width: 24%;
+        background: #f3f4f6;
+      }
+      .feature-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .feature-table th, .feature-table td {
+        border: 1px solid #e5e7eb;
+        padding: 6px 8px;
+      }
+      .feature-table th {
+        background: #eff6ff;
+      }
+      .mono {
+        font-family: "DejaVu Sans Mono", monospace;
+      }
+      .bar-row {
+        display: grid;
+        grid-template-columns: 1fr 2fr 90px;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .bar-label {
+        font-size: 11px;
+        color: #334155;
+      }
+      .bar-track {
+        height: 12px;
+        border-radius: 999px;
+        background: #e5e7eb;
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+      }
+      .bar-value {
+        text-align: right;
+        font-size: 11px;
+      }
+      .footnote {
+        margin-top: 10px;
+        color: #6b7280;
+        font-size: 10px;
+      }
     </style>
   </head>
   <body>
-    <h1>Manufacturing AI Studio 리포트</h1>
-    <p class="meta">생성일: ${created_at}</p>
-
-    <div class="card">
-      <strong>모델명</strong>: ${model_name}<br />
-      <strong>태스크 유형</strong>: ${task_type}<br />
-      <strong>지표</strong>: ${metric_name} = ${metric_value}<br />
-      <strong>타겟 컬럼</strong>: ${target_column}
+    <div class="header">
+      <h1>Manufacturing AI Studio 분석 리포트</h1>
+      <p>Model ID ${model_id} | 생성일 ${created_at}</p>
     </div>
 
-    <div class="card">
-      <h3>피처 중요도</h3>
-      <ul>${feature_items}</ul>
+    <div class="section">
+      <h2>1. 실행 요약</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">모델명</div>
+          <div class="summary-value">${model_name}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">핵심 지표 (${metric_name})</div>
+          <div class="summary-value">${metric_value}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">성능 등급</div>
+          <div class="summary-value"><span class="grade">${metric_grade}</span></div>
+        </div>
+      </div>
+      <p style="margin: 10px 0 0 0;">평가 코멘트: ${metric_comment}</p>
+    </div>
+
+    <div class="section">
+      <h2>2. 모델 상세 정보</h2>
+      <table class="kv">
+        <tr><th>실험명</th><td>${experiment_name}</td><th>태스크</th><td>${task_type}</td></tr>
+        <tr><th>타겟 컬럼</th><td>${target_column}</td><th>피처 개수</th><td>${feature_count}</td></tr>
+        <tr><th>평가 지표</th><td>${metric_name}</td><th>평가 값</th><td class="mono">${metric_value}</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>3. 영향도 분석 (Top Features)</h2>
+      <table class="feature-table">
+        <thead>
+          <tr>
+            <th style="width: 60px;">순위</th>
+            <th>피처</th>
+            <th style="width: 140px;">중요도</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${feature_rows}
+        </tbody>
+      </table>
+      <div style="margin-top: 10px;">
+        ${feature_bars}
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>4. 운영 권장 액션</h2>
+      <ol>
+        ${recommendation_items}
+      </ol>
+      <p class="footnote">
+        본 리포트는 자동 학습 결과를 기반으로 생성되었으며, 실운영 반영 전 데이터 품질 및 기준값 검토가 필요합니다.
+      </p>
     </div>
   </body>
 </html>

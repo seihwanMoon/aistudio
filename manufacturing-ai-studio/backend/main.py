@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from database import Base, engine
 import models  # noqa: F401
@@ -14,9 +15,22 @@ app = FastAPI(
     version="1.0.0",
 )
 
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:43000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:43000",
+]
+_cors_env = os.getenv("CORS_ALLOW_ORIGINS", "")
+allow_origins = [origin.strip() for origin in _cors_env.split(",") if origin.strip()] or DEFAULT_CORS_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=allow_origins,
+    # 로컬 실행 시 프론트 포트가 바뀌어도 CORS 차단이 나지 않도록 허용
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -8,8 +8,10 @@ import joblib
 try:
     import mlflow
     import mlflow.sklearn
+    from mlflow.models import infer_signature
 except Exception:  # noqa: BLE001
     mlflow = None
+    infer_signature = None
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, mean_absolute_error, r2_score
@@ -81,6 +83,8 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
             metric_value = metrics["accuracy"]
             confusion = confusion_matrix(y_test, predictions).tolist()
 
+        feature_importance = _build_feature_importance(estimator, feature_columns)
+
         if mlflow is not None:
             try:
                 with mlflow.start_run(run_name=f"train-{session_id[:8]}") as run:
@@ -95,14 +99,51 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
                     })
                     mlflow.log_metrics(metrics)
                     mlflow.log_metric("primary_metric", metric_value)
-                    mlflow.sklearn.log_model(estimator, artifact_path="model")
+                    mlflow.set_tags({
+                        "project": "manufacturing_ai_studio",
+                        "pipeline": "automl_training",
+                        "session_id": session_id,
+                        "data_file_id": file_id,
+                        "task_type": task_type,
+                        "target_column": target_column,
+                        "model_family": "random_forest",
+                    })
+
+                    mlflow.log_dict(
+                        {
+                            "metric_name": metric_name,
+                            "metric_value": metric_value,
+                            "metrics": metrics,
+                            "feature_importance": feature_importance,
+                            "training_time_sec": elapsed,
+                            "feature_columns": feature_columns,
+                            "target_column": target_column,
+                            "task_type": task_type,
+                        },
+                        "training_summary.json",
+                    )
+
+                    input_example = X_train.head(min(5, len(X_train))).copy()
+                    signature = None
+                    if infer_signature is not None and not input_example.empty:
+                        sample_prediction = estimator.predict(input_example)
+                        signature = infer_signature(input_example, sample_prediction)
+
+                    if signature is not None:
+                        mlflow.sklearn.log_model(
+                            estimator,
+                            artifact_path="model",
+                            signature=signature,
+                            input_example=input_example,
+                        )
+                    else:
+                        mlflow.sklearn.log_model(estimator, artifact_path="model")
             except Exception:
                 mlflow_run_id = None
 
         session["progress"] = 70
         session["logs"].append("모델 학습 완료")
 
-        feature_importance = _build_feature_importance(estimator, feature_columns)
         session["progress"] = 90
         session["logs"].append("평가 지표 계산 완료")
 

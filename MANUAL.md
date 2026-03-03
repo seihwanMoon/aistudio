@@ -30,7 +30,9 @@
 ## 7) Docker 실행
 ```bash
 cd manufacturing-ai-studio
-docker-compose up -d
+docker-compose up -d --build
+# 포트 3000 충돌 시
+# FRONTEND_PORT=43000 docker-compose up -d --build
 ```
 
 ## 8) 트러블슈팅

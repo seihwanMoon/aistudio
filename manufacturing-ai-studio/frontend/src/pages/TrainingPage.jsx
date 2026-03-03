@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { startTraining, getTrainingStatus } from '../api/train.api'
 import { KO } from '../constants/korean'
@@ -19,6 +20,7 @@ export default function TrainingPage() {
   const [logs, setLogs] = useState([])
   const [status, setStatus] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [autoStarted, setAutoStarted] = useState(false)
 
   const canStart = useMemo(
     () => uploadedFile?.file_id && targetColumn && featureColumns.length > 0,
@@ -32,6 +34,8 @@ export default function TrainingPage() {
     }
 
     setStatus('starting')
+    setProgress(0)
+    setLogs(['학습 시작 요청을 전송했습니다.'])
     setErrorMessage('')
 
     try {
@@ -43,12 +47,21 @@ export default function TrainingPage() {
         time_budget: 120,
       })
       setTrainingSessionId(response.session_id)
+      setLogs((prev) => [...prev, `세션 생성 완료: ${response.session_id}`])
       setStatus('running')
     } catch (error) {
       setStatus('failed')
       setErrorMessage(error?.response?.data?.detail || '학습 시작에 실패했습니다.')
     }
   }
+
+  useEffect(() => {
+    // 설정이 충분하면 진입 직후 자동 시작(버튼 클릭 누락/확장프로그램 간섭 대비)
+    if (!autoStarted && canStart && !trainingSessionId && status === 'idle') {
+      setAutoStarted(true)
+      beginTraining()
+    }
+  }, [autoStarted, canStart, trainingSessionId, status])
 
   useEffect(() => {
     if (!trainingSessionId) return
@@ -72,6 +85,16 @@ export default function TrainingPage() {
           clearInterval(timer)
         }
       } catch (error) {
+        if (error?.response?.status === 404) {
+          // 백엔드 재시작 등으로 세션 메모리가 초기화된 경우, 새 세션 시작을 유도
+          setTrainingSessionId(null)
+          setStatus('idle')
+          setProgress(0)
+          setLogs(['이전 학습 세션이 만료되었습니다. 다시 학습 시작 버튼을 눌러 주세요.'])
+          setErrorMessage('')
+          clearInterval(timer)
+          return
+        }
         setErrorMessage(error?.response?.data?.detail || '학습 상태를 불러오지 못했습니다.')
       }
     }, 1200)
@@ -83,6 +106,9 @@ export default function TrainingPage() {
     <section style={{ textAlign: 'left', maxWidth: 900, margin: '0 auto' }}>
       <h1>{KO.training.title}</h1>
       <p>{KO.training.subtitle}</p>
+      <p style={{ color: '#475569', fontSize: 14 }}>
+        상태: {status} / 세션: {trainingSessionId || '-'}
+      </p>
 
       <div style={{ marginTop: 16, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#fff' }}>
         <div style={{ height: 16, borderRadius: 999, backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
@@ -94,6 +120,11 @@ export default function TrainingPage() {
       <button type="button" onClick={beginTraining} disabled={!canStart || status === 'running' || status === 'starting'} style={{ marginTop: 16 }}>
         {status === 'running' || status === 'starting' ? '학습 중...' : '학습 시작'}
       </button>
+      {!canStart && (
+        <p style={{ marginTop: 8, color: '#b45309' }}>
+          학습에 필요한 설정이 없습니다. <Link to="/setup">학습 설정</Link>에서 타겟/피처를 다시 선택해 주세요.
+        </p>
+      )}
 
       <div style={{ marginTop: 16, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#0f172a', color: '#e2e8f0' }}>
         <strong>로그</strong>

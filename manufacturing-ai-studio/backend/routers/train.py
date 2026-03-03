@@ -20,15 +20,26 @@ class TrainStartRequest(BaseModel):
     task_type: str = "classification"
 
 
+def _sanitize_feature_columns(target_column: str, feature_columns: list[str]) -> list[str]:
+    normalized = []
+    for col in feature_columns:
+        if col == target_column:
+            continue
+        if col not in normalized:
+            normalized.append(col)
+    return normalized
+
+
 @router.post("/start")
 def start_train(payload: TrainStartRequest):
-    if not payload.feature_columns:
+    sanitized_features = _sanitize_feature_columns(payload.target_column, payload.feature_columns)
+    if not sanitized_features:
         raise HTTPException(status_code=400, detail="feature_columns는 최소 1개 이상이어야 합니다.")
 
     session_id = start_training(
         file_id=payload.file_id,
         target_column=payload.target_column,
-        feature_columns=payload.feature_columns,
+        feature_columns=sanitized_features,
         time_budget=payload.time_budget,
         task_type=payload.task_type,
     )
@@ -87,10 +98,14 @@ def retrain_model(model_id: int, payload: RetrainRequest):
         if not model:
             raise HTTPException(status_code=404, detail="모델을 찾을 수 없습니다.")
 
+        sanitized_features = _sanitize_feature_columns(payload.target_column, payload.feature_columns)
+        if not sanitized_features:
+            raise HTTPException(status_code=400, detail="feature_columns는 최소 1개 이상이어야 합니다.")
+
         session_id = start_training(
             file_id=payload.file_id,
             target_column=payload.target_column,
-            feature_columns=payload.feature_columns,
+            feature_columns=sanitized_features,
             time_budget=payload.time_budget,
             task_type=payload.task_type,
         )

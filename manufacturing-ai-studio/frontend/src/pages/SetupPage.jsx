@@ -45,6 +45,11 @@ export default function SetupPage() {
   const taskType = useMemo(() => detectTaskType(dtypes[targetColumn]), [dtypes, targetColumn])
   const featureOptions = useMemo(() => columns.filter((col) => col !== targetColumn), [columns, targetColumn])
 
+  function handleTargetChange(nextTarget) {
+    setTargetColumn(nextTarget)
+    setFeatureColumns((prev) => prev.filter((column) => column !== nextTarget))
+  }
+
   function toggleFeature(column) {
     if (featureColumns.includes(column)) {
       setFeatureColumns(featureColumns.filter((c) => c !== column))
@@ -80,7 +85,7 @@ export default function SetupPage() {
       <label style={{ display: 'block', marginTop: 12, fontWeight: 700 }}>{KO.setup.targetLabel}</label>
       <select
         value={targetColumn}
-        onChange={(e) => setTargetColumn(e.target.value)}
+        onChange={(e) => handleTargetChange(e.target.value)}
         style={{ width: '100%', maxWidth: 420, marginTop: 8, padding: 10, borderRadius: 8, border: '1px solid #d1d5db' }}
       >
         <option value="">{KO.setup.targetPlaceholder}</option>

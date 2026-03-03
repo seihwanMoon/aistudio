@@ -12,6 +12,13 @@ import { useAppStore } from '../store/useAppStore'
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024
 const SUPPORTED_EXTENSIONS = ['csv', 'xlsx']
+const ANALYSIS_TABS = [
+  { id: 'preview', label: '데이터 미리보기' },
+  { id: 'overview', label: 'EDA 요약' },
+  { id: 'target', label: '타겟 인사이트' },
+  { id: 'correlation', label: '상관분석' },
+  { id: 'feature', label: '피처 프로필' },
+]
 
 function validateFile(file) {
   if (!file) return '파일을 선택해 주세요.'
@@ -45,6 +52,7 @@ export default function UploadPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [edaErrorMessage, setEdaErrorMessage] = useState('')
+  const [activeTab, setActiveTab] = useState('preview')
 
   const canUpload = useMemo(() => file && !isLoading, [file, isLoading])
 
@@ -63,6 +71,7 @@ export default function UploadPage() {
     const validationMessage = validateFile(nextFile)
     setErrorMessage(validationMessage)
     setEdaErrorMessage('')
+    setActiveTab('preview')
   }
 
   async function loadFeatureProfile(fileId, featureName) {
@@ -159,6 +168,7 @@ export default function UploadPage() {
       const uploaded = await uploadDataFile(file)
       setUploadResult(uploaded)
       setUploadedFile(uploaded)
+      setActiveTab('preview')
 
       try {
         await loadPreviewAndEda(uploaded.file_id)
@@ -232,22 +242,64 @@ export default function UploadPage() {
         </div>
       )}
 
-      <DataPreview preview={preview} />
-      <EdaOverview summary={edaSummary} />
-      <EdaTargetInsight
-        columns={preview?.columns || []}
-        targetColumn={targetInsightColumn}
-        onChangeTarget={handleSelectTargetInsight}
-        insight={targetInsight}
-        isLoading={isTargetInsightLoading}
-      />
-      <EdaCorrelation correlation={edaCorrelation} />
-      <EdaFeatureProfile
-        columns={preview?.columns || []}
-        selectedFeature={selectedFeature}
-        onChangeFeature={handleSelectFeature}
-        profile={featureProfile}
-      />
+      {preview && (
+        <section style={{ marginTop: 20, border: '1px solid #e5e7eb', borderRadius: 12, backgroundColor: '#fff' }}>
+          <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid #e5e7eb' }}>
+            <h2 style={{ margin: 0, fontSize: 17 }}>업로드 데이터 분석</h2>
+            <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: 13 }}>
+              아래 탭에서 미리보기와 EDA 결과를 개별 화면으로 확인하세요.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 12, borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+            {ANALYSIS_TABS.map((tab) => {
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    border: isActive ? '1px solid #2563eb' : '1px solid #d1d5db',
+                    backgroundColor: isActive ? '#eff6ff' : '#fff',
+                    color: isActive ? '#1d4ed8' : '#1f2937',
+                    borderRadius: 999,
+                    padding: '6px 12px',
+                    fontSize: 13,
+                    fontWeight: isActive ? 700 : 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={{ padding: 12 }}>
+            {activeTab === 'preview' && <DataPreview preview={preview} />}
+            {activeTab === 'overview' && <EdaOverview summary={edaSummary} />}
+            {activeTab === 'target' && (
+              <EdaTargetInsight
+                columns={preview?.columns || []}
+                targetColumn={targetInsightColumn}
+                onChangeTarget={handleSelectTargetInsight}
+                insight={targetInsight}
+                isLoading={isTargetInsightLoading}
+              />
+            )}
+            {activeTab === 'correlation' && <EdaCorrelation correlation={edaCorrelation} />}
+            {activeTab === 'feature' && (
+              <EdaFeatureProfile
+                columns={preview?.columns || []}
+                selectedFeature={selectedFeature}
+                onChangeFeature={handleSelectFeature}
+                profile={featureProfile}
+              />
+            )}
+          </div>
+        </section>
+      )}
       {edaErrorMessage && <p style={{ color: '#b45309', marginTop: 10 }}>{edaErrorMessage}</p>}
     </section>
   )

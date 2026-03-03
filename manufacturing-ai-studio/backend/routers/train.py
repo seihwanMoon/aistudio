@@ -82,6 +82,38 @@ def get_results(model_id: int):
 
 
 
+@router.get("/flaml-health")
+def flaml_health():
+    try:
+        import flaml
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "error",
+                "message": "FLAML import 실패",
+                "error": str(exc),
+            },
+        ) from exc
+
+    dtype_converter_available = True
+    helper_name = "auto_convert_dtypes_pandas"
+    try:
+        from flaml.automl import data as flaml_data
+
+        if not hasattr(flaml_data, helper_name):
+            dtype_converter_available = False
+    except Exception:
+        dtype_converter_available = False
+
+    return {
+        "status": "ok",
+        "flaml_version": getattr(flaml, "__version__", "unknown"),
+        "dtype_converter_available": dtype_converter_available,
+        "dtype_converter_name": helper_name,
+    }
+
+
 class RetrainRequest(BaseModel):
     file_id: str
     target_column: str

@@ -249,6 +249,7 @@ feature_a,feature_b,feature_c
   - `POST /api/train/start`
   - `GET /api/train/status/{session_id}`
   - `GET /api/train/results/{model_id}`
+  - `GET /api/train/flaml-health`
   - `POST /api/train/retrain/{model_id}`
 - XAI
   - `GET /api/xai/global/{model_id}`
@@ -330,6 +331,17 @@ FRONTEND_PORT=43000 docker-compose up -d --build
 - 시크릿 모드(확장 비활성) 또는 확장 프로그램 OFF 후 재확인
 - 실제 앱 오류는 Network 탭의 `/api/*` 응답 코드 기준으로 판단
 
+### 9.7 FLAML 헬스체크 확인 방법
+확인:
+```bash
+curl http://localhost:8000/api/train/flaml-health
+```
+
+예상:
+- `status: ok` 이면 FLAML import 정상
+- `dtype_converter_available: false` 는 FLAML 버전 차이로 보조 함수가 없는 상태일 수 있으며,
+  이 경우에도 앱은 pandas 변환 fallback으로 동작
+
 ## 10. 권장 운영 절차(요약)
 
 1. `docker-compose up -d --build`
@@ -342,3 +354,20 @@ FRONTEND_PORT=43000 docker-compose up -d --build
 8. `/model-history`, `/registry`로 버전 관리
 9. `/drift` 주기 점검
 10. `/realtime`로 파일 감시 기반 실시간 관제
+
+## 11. 백엔드 테스트 실행
+
+현재 의존성 기준으로 백엔드 테스트는 Python 3.11 컨테이너에서 실행하는 것을 권장합니다.
+
+```bash
+cd /home/moon/PRJ/GPT/aistudio/manufacturing-ai-studio
+
+# 1) backend 재빌드/기동
+FRONTEND_PORT=43000 docker compose up -d --build backend
+
+# 2) 테스트 도구 설치(컨테이너 내부)
+docker exec manufacturing-ai-studio-backend-1 python -m pip install pytest==8.2.2
+
+# 3) 테스트 실행
+docker exec manufacturing-ai-studio-backend-1 sh -lc 'cd /app && python -m pytest -q'
+```

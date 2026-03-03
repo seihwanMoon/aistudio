@@ -162,14 +162,14 @@
 ## 10) 단계별 실행 계획
 ## Phase 0: 기반 보강
 - [x] Dockerfile에 `libgomp1` 추가
-- [ ] FLAML import 헬스체크 endpoint 추가(선택)
+- [x] FLAML import 헬스체크 endpoint 추가(선택)
 - [x] 캐시 디렉터리 초기화 로직 추가
 
 ## Phase 1: EDA API
 - [x] `eda_service.py` 구현(quality/summary/correlation/feature-profile)
 - [x] `eda.py` router 구현 및 main 등록
 - [x] 업로드 후 자동 EDA 호출 옵션 추가
-- [ ] 단위 테스트 작성
+- [x] 단위 테스트 작성
 
 ## Phase 2: XAI API
 - [x] `xai_service.py` 구현(ShapExplainer wrapper, local/global)

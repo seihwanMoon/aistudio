@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -26,8 +28,12 @@ from services.mlflow_utils import EXPERIMENT_NAME, ensure_experiment
 
 MODEL_DIR = Path("data/models")
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
+SESSION_STATE_PATH = Path("data/cache/training_sessions.json")
+SESSION_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+MAX_TRAIN_ROWS = int(os.getenv("MAX_TRAIN_ROWS", "50000"))
 
 TRAINING_SESSIONS: dict[str, dict] = {}
+_SESSIONS_LOCK = threading.Lock()
 
 
 def _find_file_by_id(file_id: str) -> Path:
@@ -43,6 +49,40 @@ def _build_feature_importance(model, feature_columns: list[str]) -> dict[str, fl
         return {col: 0.0 for col in feature_columns}
     values = model.feature_importances_.tolist()
     return {col: float(score) for col, score in zip(feature_columns, values)}
+
+
+def _serializable_sessions() -> dict:
+    snapshot = {}
+    for session_id, payload in TRAINING_SESSIONS.items():
+        snapshot[session_id] = {
+            "status": payload.get("status"),
+            "progress": payload.get("progress", 0),
+            "logs": payload.get("logs", []),
+            "created_at": payload.get("created_at"),
+            "payload": payload.get("payload"),
+            "result": payload.get("result"),
+            "error": payload.get("error"),
+        }
+    return {"sessions": snapshot}
+
+
+def _persist_training_sessions() -> None:
+    with _SESSIONS_LOCK:
+        SESSION_STATE_PATH.write_text(
+            json.dumps(_serializable_sessions(), ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+
+def _load_persisted_sessions() -> dict:
+    if not SESSION_STATE_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(SESSION_STATE_PATH.read_text(encoding="utf-8"))
+        sessions = payload.get("sessions", {})
+        return sessions if isinstance(sessions, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def _build_mlflow_run_name(session_id: str) -> str:
@@ -113,16 +153,21 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
     mlflow_run_id = None
     try:
         session.update({"status": "running", "progress": 10, "logs": ["학습 세션 시작"]})
+        _persist_training_sessions()
 
         data_path = _find_file_by_id(file_id)
         df, _ = load_dataframe(data_path)
         df = df.dropna(subset=[target_column]).fillna(0)
+        if len(df) > MAX_TRAIN_ROWS:
+            df = df.sample(n=MAX_TRAIN_ROWS, random_state=42)
+            session["logs"].append(f"학습 샘플링 적용: {MAX_TRAIN_ROWS}행")
 
         X = df[feature_columns]
         y = df[target_column]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         session["progress"] = 35
         session["logs"].append("학습/검증 데이터 분할 완료")
+        _persist_training_sessions()
 
         estimator = RandomForestRegressor(n_estimators=120, random_state=42) if task_type == "regression" else RandomForestClassifier(n_estimators=120, random_state=42)
 
@@ -206,9 +251,11 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
 
         session["progress"] = 70
         session["logs"].append("모델 학습 완료")
+        _persist_training_sessions()
 
         session["progress"] = 90
         session["logs"].append("평가 지표 계산 완료")
+        _persist_training_sessions()
 
         experiment = Experiment(name=f"auto-experiment-{session_id[:8]}", status="done", task_type=task_type, target_column=target_column)
         db.add(experiment)
@@ -250,19 +297,80 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
         }
 
         session.update({"status": "done", "progress": 100, "logs": session["logs"] + ["학습 세션 완료"], "result": result_payload})
+        _persist_training_sessions()
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         session.update({"status": "failed", "progress": 100, "logs": session.get("logs", []) + [f"오류: {exc}"], "error": str(exc)})
+        _persist_training_sessions()
     finally:
         db.close()
 
 
-def start_training(file_id: str, target_column: str, feature_columns: list[str], time_budget: int, task_type: str) -> str:
-    session_id = f"session-{int(time.time() * 1000)}"
-    TRAINING_SESSIONS[session_id] = {"status": "queued", "progress": 0, "logs": ["작업 대기 중"], "created_at": time.time()}
+def _start_worker(session_id: str, file_id: str, target_column: str, feature_columns: list[str], time_budget: int, task_type: str) -> None:
     worker = threading.Thread(target=_run_training, args=(session_id, file_id, target_column, feature_columns, time_budget, task_type), daemon=True)
     worker.start()
-    return session_id
+
+
+def start_training(
+    file_id: str,
+    target_column: str,
+    feature_columns: list[str],
+    time_budget: int,
+    task_type: str,
+    session_id: str | None = None,
+    resumed: bool = False,
+) -> str:
+    resolved_session_id = session_id or f"session-{int(time.time() * 1000)}"
+    TRAINING_SESSIONS[resolved_session_id] = {
+        "status": "queued",
+        "progress": 0,
+        "logs": ["작업 대기 중"] if not resumed else ["재시작 후 학습 재개"],
+        "created_at": time.time(),
+        "payload": {
+            "file_id": file_id,
+            "target_column": target_column,
+            "feature_columns": feature_columns,
+            "time_budget": time_budget,
+            "task_type": task_type,
+        },
+    }
+    _persist_training_sessions()
+    _start_worker(
+        session_id=resolved_session_id,
+        file_id=file_id,
+        target_column=target_column,
+        feature_columns=feature_columns,
+        time_budget=time_budget,
+        task_type=task_type,
+    )
+    return resolved_session_id
+
+
+def restore_incomplete_training_sessions() -> list[str]:
+    persisted = _load_persisted_sessions()
+    resumed = []
+    for session_id, state in persisted.items():
+        status = state.get("status")
+        payload = state.get("payload") or {}
+        if status not in {"queued", "running", "starting"}:
+            continue
+        required_keys = {"file_id", "target_column", "feature_columns", "time_budget", "task_type"}
+        if not required_keys.issubset(payload.keys()):
+            continue
+        if session_id in TRAINING_SESSIONS:
+            continue
+
+        start_training(
+            file_id=payload["file_id"],
+            target_column=payload["target_column"],
+            feature_columns=list(payload["feature_columns"]),
+            time_budget=int(payload["time_budget"]),
+            task_type=str(payload["task_type"]),
+            session_id=session_id,
+            resumed=True,
+        )
+        resumed.append(session_id)
+    return resumed
 
 
 def get_session_status(session_id: str) -> dict:

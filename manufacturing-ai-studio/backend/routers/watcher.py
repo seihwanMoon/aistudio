@@ -32,4 +32,4 @@ def stop_watcher(watcher_id: str):
 
 @router.get('/status')
 def status():
-    return {'watchers': get_watcher_status()}
+    return {"watchers": get_watcher_status()}

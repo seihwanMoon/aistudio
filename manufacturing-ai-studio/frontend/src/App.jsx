@@ -27,18 +27,18 @@ export default function App() {
         )}
       >
         <Route path="/" element={<HomePage />} />
-        <Route path="/upload" element={<UploadPage />} />
-        <Route path="/setup" element={<SetupPage />} />
-        <Route path="/train" element={<SetupPage />} />
-        <Route path="/training" element={<TrainingPage />} />
+        <Route path="/upload" element={<ProtectedRoute allowedRoles={['admin', 'operator']}><UploadPage /></ProtectedRoute>} />
+        <Route path="/setup" element={<ProtectedRoute allowedRoles={['admin', 'operator']}><SetupPage /></ProtectedRoute>} />
+        <Route path="/train" element={<ProtectedRoute allowedRoles={['admin', 'operator']}><SetupPage /></ProtectedRoute>} />
+        <Route path="/training" element={<ProtectedRoute allowedRoles={['admin', 'operator']}><TrainingPage /></ProtectedRoute>} />
         <Route path="/results" element={<ResultsPage />} />
-        <Route path="/predict" element={<PredictPage />} />
+        <Route path="/predict" element={<ProtectedRoute allowedRoles={['admin', 'operator']}><PredictPage /></ProtectedRoute>} />
         <Route path="/models" element={<ModelsPage />} />
         <Route path="/model-history" element={<ModelHistoryPage />} />
-        <Route path="/registry" element={<RegistryPage />} />
-        <Route path="/drift" element={<DriftPage />} />
-        <Route path="/realtime" element={<RealtimePage />} />
-        <Route path="/alerts" element={<AlertSettingsPage />} />
+        <Route path="/registry" element={<ProtectedRoute allowedRoles={['admin']}><RegistryPage /></ProtectedRoute>} />
+        <Route path="/drift" element={<ProtectedRoute allowedRoles={['admin', 'operator']}><DriftPage /></ProtectedRoute>} />
+        <Route path="/realtime" element={<ProtectedRoute allowedRoles={['admin', 'operator']}><RealtimePage /></ProtectedRoute>} />
+        <Route path="/alerts" element={<ProtectedRoute allowedRoles={['admin']}><AlertSettingsPage /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

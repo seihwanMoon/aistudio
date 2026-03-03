@@ -7,7 +7,7 @@ import { useRealtimePredictions } from '../hooks/useRealtimePredictions'
 export default function RealtimePage() {
   const { predictions, latestBatch, alerts, isConnected } = useRealtimePredictions()
   const [selected, setSelected] = useState(null)
-  const [watcher, setWatcher] = useState({ watch_dir: '/tmp', model_id: 1, threshold: 0.7 })
+  const [watcher, setWatcher] = useState({ watch_dir: '/app/data/uploads/watch', model_id: 1, threshold: 0.7 })
   const [watcherId, setWatcherId] = useState('')
   const [watchStatus, setWatchStatus] = useState({})
 

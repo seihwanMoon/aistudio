@@ -50,6 +50,11 @@ docker-compose down
 - username: `admin`
 - password: `admin123`
 
+가입 시 역할 선택:
+- `admin`: 전체 메뉴 접근(레지스트리/알림설정 포함)
+- `operator`: 운영 메뉴 접근(업로드/학습/예측/드리프트/실시간)
+- `viewer`: 조회 중심 메뉴 접근(홈/학습결과/히스토리)
+
 주의:
 - 이미 같은 username이 있으면 회원가입은 실패하고 로그인만 진행해야 합니다.
 
@@ -99,11 +104,13 @@ docker-compose down
 - 진행률(%)와 로그 표시
 - 완료 시 자동으로 결과 페이지 이동
 - 사용자가 `학습 시작` 버튼을 누를 때만 시작(자동 시작 없음)
+- 서버 재시작 시 `queued/running` 상태 세션은 자동 복구되어 재개됨
 
 기본 설정:
 - `time_budget = 120초`
 - 백엔드 내부 모델: RandomForest 기반
 - 학습 완료 시 DB 모델 정보 + artifact(joblib) 저장
+- 대용량 데이터는 `MAX_TRAIN_ROWS`(기본 50000행) 기준으로 샘플링 후 학습
 
 ### 4.4 학습 결과/리포트
 
@@ -194,6 +201,15 @@ Run 이름 규칙:
 - `warning`
 - `danger`
 
+### 6.4 알림 설정
+
+메뉴: `알림 설정` (`/alerts`, admin 전용)
+
+기능:
+- 임계값/이메일/카카오 수신 번호 저장
+- 채널별 테스트 알림 전송(email/kakao/both)
+- 최근 발송 로그 조회
+
 ## 7. 실시간 관제(Watcher + WebSocket)
 
 메뉴: `실시간 모니터링` (`/realtime`)
@@ -221,6 +237,7 @@ UI 입력 권장값:
 설명:
 - 백엔드 컨테이너에서 경로 존재를 검사하므로 `watch_dir`는 컨테이너 기준 경로여야 합니다.
 - `backend/data`는 `/app/data`로 마운트되어 있습니다.
+- 감시 설정은 서버 재시작 후 자동 복구됩니다(저장된 watcher config 기준).
 
 ### 7.2 테스트 방법
 
@@ -282,6 +299,11 @@ feature_a,feature_b,feature_c
   - `POST /api/watcher/config`
   - `POST /api/watcher/stop/{watcher_id}`
   - `GET /api/watcher/status`
+- 알림 설정
+  - `GET /api/alerts/settings`
+  - `PUT /api/alerts/settings`
+  - `POST /api/alerts/test`
+  - `GET /api/alerts/logs`
 
 ## 9. 운영 중 자주 발생하는 이슈
 
@@ -360,6 +382,15 @@ curl http://localhost:8000/api/train/flaml-health
 ```bash
 curl http://localhost:8000/api/xai/health
 ```
+
+### 9.9 MLflow Run이 계속 늘어나는 경우
+설명:
+- 정상 동작입니다. `학습 시작` 버튼 클릭 1회당 run 1개가 생성됩니다.
+- 실험 이력 비교/회귀 추적을 위해 run을 누적 저장합니다.
+
+점검:
+- 의도치 않은 run 생성이 의심되면 `/training` 페이지에서 자동 시작이 없는지 확인
+- run 이름은 `train-<session_timestamp>`로 고유 생성되어 중복 식별이 가능합니다.
 
 ## 10. 권장 운영 절차(요약)
 

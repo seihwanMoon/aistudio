@@ -4,8 +4,10 @@ import os
 
 from database import Base, engine
 import models  # noqa: F401
-from routers import auth, data, drift, eda, experiments, predict, realtime, registry, report, train, watcher, xai
+from routers import alerts, auth, data, drift, eda, experiments, predict, realtime, registry, report, train, watcher, xai
 from scheduler import start_scheduler
+from services.automl_service import restore_incomplete_training_sessions
+from services.file_watcher import restore_watchers
 
 Base.metadata.create_all(bind=engine)
 
@@ -52,11 +54,14 @@ app.include_router(drift.router, prefix="/api/drift", tags=["드리프트"])
 # Phase 3
 app.include_router(realtime.router, prefix="", tags=["실시간"])
 app.include_router(watcher.router, prefix="/api/watcher", tags=["파일감시"])
+app.include_router(alerts.router, prefix="/api/alerts", tags=["알림설정"])
 
 
 @app.on_event("startup")
 def _on_startup():
     start_scheduler()
+    restore_incomplete_training_sessions()
+    restore_watchers()
 
 
 @app.get("/")

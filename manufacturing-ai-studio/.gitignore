@@ -7,6 +7,8 @@ backend/data/models/
 backend/data/reports/
 backend/data/drift/
 backend/data/cache/
+backend/data/alerts/
+backend/data/watcher/
 
 # Node
 frontend/node_modules/

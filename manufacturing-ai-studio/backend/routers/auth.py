@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -28,7 +29,7 @@ class LoginPayload(BaseModel):
 class RegisterPayload(BaseModel):
     username: str
     password: str
-    role: str = 'viewer'
+    role: Literal['admin', 'operator', 'viewer'] = 'viewer'
 
 
 @router.post('/register')

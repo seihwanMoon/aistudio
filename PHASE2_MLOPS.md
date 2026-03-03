@@ -561,9 +561,9 @@ def retrain_model(model_id: str, background_tasks: BackgroundTasks):
 
 ## ✅ Phase 2 완료 체크리스트
 
-- [ ] http://localhost:5000 MLflow UI 접속 및 실험 목록 확인
-- [ ] 학습 후 MLflow에 자동으로 실험이 기록되는지 확인
-- [ ] 모델 히스토리 페이지에서 버전 전환 테스트
-- [ ] 드리프트 수동 체크 실행 및 알림 저장 확인
-- [ ] 재학습 버튼 동작 확인
-- [ ] 스케줄러 로그 출력 확인 (`docker logs backend`)
+- [x] http://localhost:5000 MLflow UI 접속 및 실험 목록 확인
+- [x] 학습 후 MLflow에 자동으로 실험이 기록되는지 확인
+- [x] 모델 히스토리 페이지에서 버전 전환 테스트 (Registry 등록 + Production 전환 검증)
+- [x] 드리프트 수동 체크 실행 및 알림 저장 확인
+- [x] 재학습 버튼 동작 확인
+- [x] 스케줄러 로그 출력 확인 (`docker logs backend`)

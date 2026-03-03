@@ -433,9 +433,9 @@ docker-compose up -d --build
 # FRONTEND_PORT=43000 docker-compose up -d --build
 
 # 검증 체크리스트
-# [ ] http://localhost:3000 (또는 FRONTEND_PORT)  → React 앱 홈 화면 표시
-# [ ] http://localhost:8000/docs → FastAPI Swagger UI 표시
-# [ ] http://localhost:8000  → {"message": "Manufacturing AI Studio API v1.0"}
+# [x] http://localhost:3000 (또는 FRONTEND_PORT)  → React 앱 홈 화면 표시
+# [x] http://localhost:8000/docs → FastAPI Swagger UI 표시
+# [x] http://localhost:8000  → {"message": "Manufacturing AI Studio API v1.0"}
 ```
 
 ---

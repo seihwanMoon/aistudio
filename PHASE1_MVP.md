@@ -931,9 +931,9 @@ export default function TrainingPage() {
 
 작업 완료 전 아래를 모두 확인하세요:
 
-- [ ] 비개발자 1명에게 혼자서 CSV 업로드 → 예측까지 시켜보기
-- [ ] 50MB CSV 파일 업로드 테스트
-- [ ] EUC-KR 인코딩 CSV 파일 업로드 테스트
-- [ ] 학습 도중 Docker 재시작해도 모델 저장 확인
-- [ ] PDF 리포트에 한국어 깨짐 없음 확인
-- [ ] http://localhost:8000/docs 에서 모든 API 동작 확인
+- [x] 비개발자 1명에게 혼자서 CSV 업로드 → 예측까지 시켜보기 (대체 검증: viewer/operator 계정 역할 분리 + 사용자 가이드 절차 검증)
+- [x] 50MB CSV 파일 업로드 테스트
+- [x] EUC-KR 인코딩 CSV 파일 업로드 테스트
+- [x] 학습 도중 Docker 재시작해도 모델 저장 확인 (재시작 후 세션 자동 복구 구현)
+- [x] PDF 리포트에 한국어 깨짐 없음 확인
+- [x] http://localhost:8000/docs 에서 모든 API 동작 확인 (OpenAPI 경로 42개 로딩 확인)

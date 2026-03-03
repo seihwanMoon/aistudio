@@ -4,7 +4,7 @@ import os
 
 from database import Base, engine
 import models  # noqa: F401
-from routers import auth, data, drift, eda, experiments, predict, realtime, registry, report, train, watcher
+from routers import auth, data, drift, eda, experiments, predict, realtime, registry, report, train, watcher, xai
 from scheduler import start_scheduler
 
 Base.metadata.create_all(bind=engine)
@@ -39,6 +39,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["인증"])
 app.include_router(data.router, prefix="/api/data", tags=["데이터"])
 app.include_router(eda.router, prefix="/api/eda", tags=["EDA"])
+app.include_router(xai.router, prefix="/api/xai", tags=["XAI"])
 app.include_router(train.router, prefix="/api/train", tags=["학습"])
 app.include_router(predict.router, prefix="/api/predict", tags=["예측"])
 app.include_router(report.router, prefix="/api/report", tags=["리포트"])

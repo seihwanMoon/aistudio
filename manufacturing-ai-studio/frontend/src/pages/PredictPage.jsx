@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { predictBatch, predictSingle } from '../api/predict.api'
+import { getLocalXai } from '../api/xai.api'
 import { KO } from '../constants/korean'
 import { useAppStore } from '../store/useAppStore'
 
@@ -9,9 +10,15 @@ export default function PredictPage() {
 
   const [inputs, setInputs] = useState({})
   const [singleResult, setSingleResult] = useState(null)
+  const [localXai, setLocalXai] = useState(null)
   const [batchFile, setBatchFile] = useState(null)
   const [batchResult, setBatchResult] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
+  const [xaiErrorMessage, setXaiErrorMessage] = useState('')
+  const maxLocalAbs = Math.max(
+    1e-9,
+    ...((localXai?.contributions || []).map((item) => Number(item.abs_shap_value || 0))),
+  )
 
   async function runSinglePrediction() {
     if (!trainedModelId) {
@@ -22,7 +29,21 @@ export default function PredictPage() {
       const data = await predictSingle({ model_id: trainedModelId, features: inputs })
       setSingleResult(data)
       setErrorMessage('')
+
+      try {
+        const xai = await getLocalXai({
+          model_id: trainedModelId,
+          features: inputs,
+          top_n: 10,
+        })
+        setLocalXai(xai)
+        setXaiErrorMessage('')
+      } catch (xaiError) {
+        setLocalXai(null)
+        setXaiErrorMessage(xaiError?.response?.data?.detail || '로컬 XAI 계산 실패')
+      }
     } catch (error) {
+      setLocalXai(null)
       setErrorMessage(error?.response?.data?.detail || '단건 예측 실패')
     }
   }
@@ -60,9 +81,37 @@ export default function PredictPage() {
         ))}
         <button type="button" onClick={runSinglePrediction}>단건 예측 실행</button>
         {singleResult && (
-          <p style={{ marginTop: 10 }}>
-            {KO.predict.result}: <strong>{singleResult.prediction}</strong> ({KO.predict.probability}: {singleResult.probability ?? 'N/A'})
-          </p>
+          <div style={{ marginTop: 10 }}>
+            <p>
+              {KO.predict.result}: <strong>{singleResult.prediction}</strong> ({KO.predict.probability}: {singleResult.probability ?? 'N/A'})
+            </p>
+            {localXai && (
+              <div style={{ marginTop: 8, border: '1px solid #d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}>
+                <h4 style={{ margin: '0 0 6px' }}>Local SHAP 설명</h4>
+                <p style={{ margin: '0 0 8px', fontSize: 13, color: '#4b5563' }}>
+                  base: {Number(localXai.base_value).toFixed(4)} / shap_sum: {Number(localXai.shap_sum).toFixed(4)} / raw output: {Number(localXai.approx_raw_output).toFixed(4)}
+                </p>
+                {(localXai.contributions || []).map((item) => (
+                  <div key={item.feature} style={{ marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span>{item.feature}</span>
+                      <strong>{item.shap_value.toFixed(6)}</strong>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 999, backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${Math.max(3, Math.min(100, (item.abs_shap_value / maxLocalAbs) * 100))}%`,
+                          height: '100%',
+                          backgroundColor: item.shap_value >= 0 ? '#2563eb' : '#ef4444',
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {xaiErrorMessage && <p style={{ marginTop: 8, color: '#b45309' }}>{xaiErrorMessage}</p>}
+          </div>
         )}
       </div>
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
 import { getTrainingResults } from '../api/train.api'
 import { downloadReport } from '../api/report.api'
+import { getGlobalXai } from '../api/xai.api'
 import { KO } from '../constants/korean'
 import { useAppStore } from '../store/useAppStore'
 
@@ -14,6 +15,10 @@ export default function ResultsPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const chartContainerRef = useRef(null)
   const [chartWidth, setChartWidth] = useState(0)
+  const globalChartRef = useRef(null)
+  const [globalChartWidth, setGlobalChartWidth] = useState(0)
+  const [globalXai, setGlobalXai] = useState(null)
+  const [globalXaiError, setGlobalXaiError] = useState('')
 
   useEffect(() => {
     async function loadResult() {
@@ -26,6 +31,21 @@ export default function ResultsPage() {
       }
     }
     loadResult()
+  }, [trainedModelId])
+
+  useEffect(() => {
+    async function loadGlobalXai() {
+      if (!trainedModelId) return
+      try {
+        const data = await getGlobalXai(trainedModelId, { top_n: 10, sample_size: 1000 })
+        setGlobalXai(data)
+        setGlobalXaiError('')
+      } catch (error) {
+        setGlobalXai(null)
+        setGlobalXaiError(error?.response?.data?.detail || 'XAI 결과를 불러오지 못했습니다.')
+      }
+    }
+    loadGlobalXai()
   }, [trainedModelId])
 
   useEffect(() => {
@@ -43,11 +63,30 @@ export default function ResultsPage() {
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    const element = globalChartRef.current
+    if (!element) return
+
+    const updateWidth = () => {
+      const nextWidth = Math.floor(element.getBoundingClientRect().width)
+      setGlobalChartWidth(nextWidth > 0 ? nextWidth : 0)
+    }
+
+    updateWidth()
+    const observer = new ResizeObserver(updateWidth)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
   if (!result) {
     return <p>아직 학습 결과가 없습니다.</p>
   }
 
   const featureData = Object.entries(result.feature_importance || {}).map(([name, value]) => ({ name, value }))
+  const globalXaiData = (globalXai?.top_features || []).map((item) => ({
+    name: item.feature,
+    value: item.mean_abs_shap,
+  }))
 
   async function handleDownloadReport() {
     if (!trainedModelId) return
@@ -109,6 +148,31 @@ export default function ResultsPage() {
             </BarChart>
           ) : (
             <div style={{ height: 260 }} />
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 20, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#fff' }}>
+        <h3>XAI Global SHAP Top Features</h3>
+        {globalXaiError && <p style={{ color: '#dc2626' }}>{globalXaiError}</p>}
+        {globalXai && (
+          <p style={{ color: '#4b5563', marginTop: 4 }}>
+            샘플 {globalXai.sample_size}건 기준 / 참조 파일: {globalXai.reference?.source_file || '-'}
+          </p>
+        )}
+        <div ref={globalChartRef} style={{ width: '100%', minHeight: 280 }}>
+          {globalChartWidth > 0 && globalXaiData.length > 0 ? (
+            <BarChart width={globalChartWidth} height={280} data={globalXaiData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" fill="#0891b2" />
+            </BarChart>
+          ) : (
+            <div style={{ height: 280, display: 'flex', alignItems: 'center', color: '#6b7280' }}>
+              {globalXaiError ? 'XAI 결과를 확인해 주세요.' : 'XAI 데이터를 불러오는 중입니다.'}
+            </div>
           )}
         </div>
       </div>

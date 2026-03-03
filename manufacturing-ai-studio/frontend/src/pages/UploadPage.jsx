@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { KO } from '../constants/korean'
 import { getDataPreview, uploadDataFile } from '../api/data.api'
 import DataPreview from '../components/data/DataPreview'
+import EdaOverview from '../components/data/EdaOverview'
 import FileDropzone from '../components/data/FileDropzone'
+import { getEdaSummary } from '../api/eda.api'
 import { useAppStore } from '../store/useAppStore'
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -29,6 +31,7 @@ export default function UploadPage() {
   const [file, setFile] = useState(null)
   const [uploadResult, setUploadResult] = useState(null)
   const [preview, setPreview] = useState(null)
+  const [edaSummary, setEdaSummary] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -38,6 +41,7 @@ export default function UploadPage() {
     setFile(nextFile)
     setUploadResult(null)
     setPreview(null)
+    setEdaSummary(null)
 
     const validationMessage = validateFile(nextFile)
     setErrorMessage(validationMessage)
@@ -60,6 +64,9 @@ export default function UploadPage() {
 
       const previewData = await getDataPreview(uploaded.file_id)
       setPreview(previewData)
+
+      const summary = await getEdaSummary(uploaded.file_id)
+      setEdaSummary(summary)
     } catch (error) {
       setErrorMessage(error?.response?.data?.detail || '업로드에 실패했습니다. 파일 형식을 확인해 주세요.')
     } finally {
@@ -122,6 +129,7 @@ export default function UploadPage() {
       )}
 
       <DataPreview preview={preview} />
+      <EdaOverview summary={edaSummary} />
     </section>
   )
 }

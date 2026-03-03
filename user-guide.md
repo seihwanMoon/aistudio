@@ -98,6 +98,7 @@ docker-compose down
 - 학습 시작
 - 진행률(%)와 로그 표시
 - 완료 시 자동으로 결과 페이지 이동
+- 사용자가 `학습 시작` 버튼을 누를 때만 시작(자동 시작 없음)
 
 기본 설정:
 - `time_budget = 120초`
@@ -146,6 +147,10 @@ PDF 리포트:
    - `training_summary.json`
    - `eda/summary.json`, `eda/correlation.json`
    - `xai/global_shap.json`
+
+Run 이름 규칙:
+- `train-<session_timestamp>` 형식으로 생성되어 실행마다 고유하게 구분됩니다.
+- `학습 시작` 버튼을 누를 때마다 새로운 run 1개가 생성됩니다.
 
 앱과 연결해서 쓰는 방법:
 - 앱 `모델 히스토리`에서 run_id 확인
@@ -342,6 +347,20 @@ curl http://localhost:8000/api/train/flaml-health
 - `dtype_converter_available: false` 는 FLAML 버전 차이로 보조 함수가 없는 상태일 수 있으며,
   이 경우에도 앱은 pandas 변환 fallback으로 동작
 
+### 9.8 XAI 응답이 느리거나 빈번하게 재계산되는 경우
+튜닝 환경변수(backend):
+- `XAI_CACHE_TTL_SECONDS` (기본 86400)
+- `XAI_MAX_REFERENCE_ROWS` (기본 3000)
+- `XAI_SHAP_CELL_CAP` (기본 50000)
+
+튜닝 환경변수(EDA):
+- `EDA_CACHE_TTL_SECONDS` (기본 86400)
+
+확인 API:
+```bash
+curl http://localhost:8000/api/xai/health
+```
+
 ## 10. 권장 운영 절차(요약)
 
 1. `docker-compose up -d --build`
@@ -370,4 +389,18 @@ docker exec manufacturing-ai-studio-backend-1 python -m pip install pytest==8.2.
 
 # 3) 테스트 실행
 docker exec manufacturing-ai-studio-backend-1 sh -lc 'cd /app && python -m pytest -q'
+```
+
+## 12. EDA/XAI 성능 스모크 점검
+
+샘플 실행:
+```bash
+cd /home/moon/PRJ/GPT/aistudio/manufacturing-ai-studio
+docker exec manufacturing-ai-studio-backend-1 \
+  python /app/scripts/perf_smoke.py \
+  --base-url http://localhost:8000 \
+  --file-id 697566ee60eb48b6948db7933a074b38 \
+  --model-id 10 \
+  --target-column 경도 \
+  --feature-name 가열온도
 ```

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from services.data_service import load_dataframe
 
 CACHE_DIR = Path("data/cache/eda")
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+EDA_CACHE_TTL_SECONDS = int(os.getenv("EDA_CACHE_TTL_SECONDS", "86400"))
 
 
 def _find_file_by_id(file_id: str) -> Path:
@@ -51,11 +53,12 @@ def _cache_path(key: str) -> Path:
     return CACHE_DIR / f"{key}.json"
 
 
-def _load_cache(key: str, ttl_seconds: int = 60 * 60 * 24) -> dict | None:
+def _load_cache(key: str, ttl_seconds: int | None = None) -> dict | None:
     path = _cache_path(key)
     if not path.exists():
         return None
-    if time.time() - path.stat().st_mtime > ttl_seconds:
+    ttl = EDA_CACHE_TTL_SECONDS if ttl_seconds is None else ttl_seconds
+    if time.time() - path.stat().st_mtime > ttl:
         return None
     try:
         return json.loads(path.read_text(encoding="utf-8"))

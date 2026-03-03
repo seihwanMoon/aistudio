@@ -20,7 +20,6 @@ export default function TrainingPage() {
   const [logs, setLogs] = useState([])
   const [status, setStatus] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
-  const [autoStarted, setAutoStarted] = useState(false)
 
   const canStart = useMemo(
     () => uploadedFile?.file_id && targetColumn && featureColumns.length > 0,
@@ -54,14 +53,6 @@ export default function TrainingPage() {
       setErrorMessage(error?.response?.data?.detail || '학습 시작에 실패했습니다.')
     }
   }
-
-  useEffect(() => {
-    // 설정이 충분하면 진입 직후 자동 시작(버튼 클릭 누락/확장프로그램 간섭 대비)
-    if (!autoStarted && canStart && !trainingSessionId && status === 'idle') {
-      setAutoStarted(true)
-      beginTraining()
-    }
-  }, [autoStarted, canStart, trainingSessionId, status])
 
   useEffect(() => {
     if (!trainingSessionId) return

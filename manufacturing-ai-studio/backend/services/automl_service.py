@@ -45,6 +45,12 @@ def _build_feature_importance(model, feature_columns: list[str]) -> dict[str, fl
     return {col: float(score) for col, score in zip(feature_columns, values)}
 
 
+def _build_mlflow_run_name(session_id: str) -> str:
+    if session_id.startswith("session-"):
+        return f"train-{session_id.removeprefix('session-')}"
+    return f"train-{session_id}"
+
+
 def _log_eda_xai_artifacts_to_mlflow(mlflow_run_id: str | None, file_id: str, model_id: int) -> dict:
     status = {
         "eda_summary_logged": False,
@@ -144,7 +150,7 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
 
         if mlflow is not None:
             try:
-                with mlflow.start_run(run_name=f"train-{session_id[:8]}") as run:
+                with mlflow.start_run(run_name=_build_mlflow_run_name(session_id)) as run:
                     mlflow_run_id = run.info.run_id
                     mlflow.log_params({
                         "task_type": task_type,

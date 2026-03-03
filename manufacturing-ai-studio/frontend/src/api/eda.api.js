@@ -10,6 +10,16 @@ export async function getEdaCorrelation(fileId, params = {}) {
   return data
 }
 
+export async function getEdaStatistics(fileId, params = {}) {
+  const { data } = await apiClient.get(`/api/eda/${fileId}/statistics`, { params })
+  return data
+}
+
+export async function getEdaMultivariate(fileId, params = {}) {
+  const { data } = await apiClient.get(`/api/eda/${fileId}/multivariate`, { params })
+  return data
+}
+
 export async function getEdaFeatureProfile(fileId, featureName, params = {}) {
   const { data } = await apiClient.get(`/api/eda/${fileId}/feature/${encodeURIComponent(featureName)}`, { params })
   return data

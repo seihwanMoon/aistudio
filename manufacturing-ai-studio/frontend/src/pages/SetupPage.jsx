@@ -78,7 +78,7 @@ export default function SetupPage() {
 
   if (!uploadedFile?.file_id) {
     return (
-      <section style={{ textAlign: 'left' }}>
+      <section className="page-shell compact">
         <h1>{KO.setup.title}</h1>
         <p>먼저 업로드를 진행해 주세요.</p>
         <Link to="/upload">업로드로 이동</Link>
@@ -87,15 +87,19 @@ export default function SetupPage() {
   }
 
   return (
-    <section style={{ textAlign: 'left', maxWidth: 980, margin: '0 auto' }}>
-      <h1>{KO.setup.title}</h1>
-      <p style={{ color: '#4b5563' }}>{KO.setup.featureHint}</p>
+    <section className="page-shell compact">
+      <div className="page-hero">
+        <p className="page-kicker">Model Configuration</p>
+        <h1>{KO.setup.title}</h1>
+        <p className="page-subtitle">{KO.setup.featureHint}</p>
+      </div>
 
-      <label style={{ display: 'block', marginTop: 12, fontWeight: 700 }}>{KO.setup.targetLabel}</label>
+      <div className="section-card soft">
+        <label style={{ display: 'block', fontWeight: 700 }}>{KO.setup.targetLabel}</label>
       <select
         value={targetColumn}
         onChange={(e) => handleTargetChange(e.target.value)}
-        style={{ width: '100%', maxWidth: 420, marginTop: 8, padding: 10, borderRadius: 8, border: '1px solid #d1d5db' }}
+          style={{ width: '100%', maxWidth: 420, marginTop: 8 }}
       >
         <option value="">{KO.setup.targetPlaceholder}</option>
         {columns.map((col) => (
@@ -104,31 +108,34 @@ export default function SetupPage() {
       </select>
 
       {targetColumn && (
-        <p style={{ color: '#1d4ed8', fontWeight: 600 }}>
+          <p>
+            <span className="badge info">
           {KO.setup.autoDetected}: {taskType === 'classification' ? KO.setup.taskType.classification : KO.setup.taskType.regression}
+            </span>
         </p>
       )}
 
       <h3>{KO.setup.featureLabel}</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+        <div className="feature-grid">
         {featureOptions.map((col) => (
-          <label key={col} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 10, backgroundColor: '#fff' }}>
+            <label key={col} className="feature-option">
             <input type="checkbox" checked={featureColumns.includes(col)} onChange={() => toggleFeature(col)} /> {col}
-            <small style={{ display: 'block', color: '#6b7280' }}>{dtypes[col]}</small>
+              <small>{dtypes[col]}</small>
           </label>
         ))}
       </div>
 
-      <button type="button" onClick={goTraining} style={{ marginTop: 16 }}>학습 시작 화면으로 이동</button>
-      {errorMessage && <p style={{ color: '#dc2626' }}>{errorMessage}</p>}
+        <button type="button" onClick={goTraining} style={{ marginTop: 16 }}>학습 시작 화면으로 이동</button>
+        {errorMessage && <p className="notice error">{errorMessage}</p>}
+      </div>
 
-      <div style={{ marginTop: 24 }}>
+      <div className="section-card">
         <h3 style={{ marginBottom: 8 }}>EDA 개선사항 요약</h3>
-        <p style={{ marginTop: 0, color: '#4b5563' }}>
+        <p className="section-card-subtitle">
           업로드 페이지에서 전체 EDA를 확인할 수 있으며, 여기서는 핵심 품질 지표를 요약 표시합니다.
         </p>
         <EdaOverview summary={edaSummary} />
-        {!edaSummary && <p style={{ color: '#6b7280' }}>EDA 요약을 불러오지 못했습니다. 업로드 페이지에서 다시 확인해 주세요.</p>}
+        {!edaSummary && <p className="helper-text">EDA 요약을 불러오지 못했습니다. 업로드 페이지에서 다시 확인해 주세요.</p>}
       </div>
     </section>
   )

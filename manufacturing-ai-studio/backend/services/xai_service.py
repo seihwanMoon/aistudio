@@ -15,7 +15,7 @@ from sklearn.inspection import partial_dependence
 
 from database import SessionLocal
 from models import Model
-from services.data_service import load_dataframe
+from services.data_service import get_upload_metadata, load_dataframe
 
 XAI_CACHE_DIR = Path("data/cache/xai")
 XAI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -128,13 +128,33 @@ def _select_reference_data(
         if len(x) > sample_size:
             x = x.sample(n=sample_size, random_state=42)
 
+        ref_file_id = file_path.stem
+        meta = get_upload_metadata(ref_file_id)
+        source_file_name = meta.get("original_filename") or file_path.name
         return x, {
+            "file_id": ref_file_id,
             "source_file": file_path.name,
+            "source_file_name": source_file_name,
             "rows_used": int(len(x)),
             "target_column": target_column,
         }
 
     raise FileNotFoundError("설명 계산에 사용할 참조 데이터를 찾을 수 없습니다.")
+
+
+def _normalize_reference_payload(reference: dict | None) -> dict:
+    ref = dict(reference or {})
+    source_file = ref.get("source_file")
+    file_id = ref.get("file_id")
+    if not file_id and source_file:
+        file_id = Path(str(source_file)).stem
+    if file_id:
+        meta = get_upload_metadata(str(file_id))
+        ref["file_id"] = str(file_id)
+        ref["source_file_name"] = ref.get("source_file_name") or meta.get("original_filename") or source_file
+    elif source_file:
+        ref["source_file_name"] = ref.get("source_file_name") or str(source_file)
+    return ref
 
 
 def _resolve_shap_matrix(shap_values: Any, class_index: int = 0) -> np.ndarray:
@@ -210,6 +230,7 @@ def get_global_explanation(
     if use_cache:
         cached = _load_cache(cache_key)
         if cached is not None:
+            cached["reference"] = _normalize_reference_payload(cached.get("reference"))
             cached["cache_hit"] = True
             return cached
 
@@ -262,7 +283,7 @@ def get_global_explanation(
         "sample_size_requested": int(requested_sample_size),
         "sample_size_effective": int(effective_sample_size),
         "sample_size": int(len(x_ref)),
-        "reference": ref_info,
+        "reference": _normalize_reference_payload(ref_info),
         "base_value": base_value,
         "top_features": top_features,
         "model_feature_importance": model_importance[: max(1, min(clean_top_n, len(feature_columns)))],
@@ -356,6 +377,7 @@ def get_partial_dependence(
     if use_cache:
         cached = _load_cache(cache_key)
         if cached is not None:
+            cached["reference"] = _normalize_reference_payload(cached.get("reference"))
             cached["cache_hit"] = True
             return cached
 
@@ -389,7 +411,7 @@ def get_partial_dependence(
         "mode": "pdp",
         "sample_size_requested": int(requested_sample_size),
         "sample_size_effective": int(effective_sample_size),
-        "reference": ref_info,
+        "reference": _normalize_reference_payload(ref_info),
         "grid_points": int(clean_grid_points),
         "points": [{"x": float(xv), "y": float(yv)} for xv, yv in zip(grid.tolist(), np.asarray(y_values).tolist())],
         "fallback_reason": (

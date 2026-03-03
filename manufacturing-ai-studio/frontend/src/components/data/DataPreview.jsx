@@ -1,6 +1,6 @@
 function renderCellValue(value) {
   if (value === null || value === undefined || value === '') {
-    return <span style={{ color: '#dc2626', fontWeight: 600 }}>결측값</span>
+    return <span className="badge" style={{ color: '#b91c1c' }}>결측값</span>
   }
 
   if (typeof value === 'object') {
@@ -14,32 +14,27 @@ export default function DataPreview({ preview }) {
   if (!preview) return null
 
   const { columns = [], data = [], missing_counts: missingCounts = {} } = preview
+  const dataRef = preview.data_ref || preview.data_id || preview.file_id || '-'
+  const dataName = preview.data_name || preview.filename || '-'
 
   return (
-    <section style={{ marginTop: 24 }}>
-      <h2 style={{ marginBottom: 8 }}>데이터 미리보기 (상위 100행)</h2>
-      <p style={{ margin: '0 0 12px', color: '#4b5563' }}>
+    <section className="section-card soft">
+      <h2>데이터 미리보기 (상위 100행)</h2>
+      <p className="section-card-subtitle">
         총 {preview.total_rows}행 / {preview.total_columns}열, 인코딩: {preview.encoding || 'xlsx'}
       </p>
-      <p style={{ margin: '0 0 10px', color: '#475569', fontSize: 13 }}>
-        데이터명: {preview.data_name || '-'} / 데이터 키: {preview.data_key || preview.file_id} / 데이터 ID: {preview.data_id || preview.file_id}
+      <p className="helper-text">
+        데이터명: {dataName} / 데이터 식별자: {dataRef}
       </p>
 
-      <div
-        style={{
-          overflowX: 'auto',
-          border: '1px solid #e5e7eb',
-          borderRadius: 12,
-          backgroundColor: 'white',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+      <div className="table-wrap">
+        <table>
           <thead>
-            <tr style={{ backgroundColor: '#f3f4f6' }}>
+            <tr>
               {columns.map((col) => (
-                <th key={col} style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #e5e7eb' }}>
-                  <div style={{ fontWeight: 700 }}>{col}</div>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>
+                <th key={col}>
+                  <div>{col}</div>
+                  <div className="helper-text" style={{ margin: 0 }}>
                     {preview.dtypes?.[col]} · 결측 {missingCounts[col] ?? 0}
                   </div>
                 </th>
@@ -57,10 +52,7 @@ export default function DataPreview({ preview }) {
                     <td
                       key={`${rowIdx}-${col}`}
                       style={{
-                        padding: '8px 12px',
-                        borderBottom: '1px solid #f3f4f6',
                         backgroundColor: isMissing ? '#fef2f2' : 'transparent',
-                        whiteSpace: 'nowrap',
                       }}
                     >
                       {renderCellValue(value)}

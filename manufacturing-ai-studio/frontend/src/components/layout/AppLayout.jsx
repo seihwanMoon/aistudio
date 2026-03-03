@@ -1,6 +1,7 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { KO } from '../../constants/korean'
 import { useAuth } from '../../hooks/useAuth'
+import './AppLayout.css'
 
 const navItems = [
   { to: '/', label: KO.nav.home, roles: ['admin', 'operator', 'viewer'] },
@@ -28,27 +29,60 @@ export default function AppLayout() {
   const { username, role, logout } = useAuth()
   const visibleNavItems = navItems.filter((item) => item.roles.includes(role))
   const visibleMobileTabs = mobileTabs.filter((item) => item.roles.includes(role))
+  const safeRole = role || 'viewer'
 
   return (
-    <div style={{ fontFamily: 'Malgun Gothic, Apple SD Gothic Neo, sans-serif', minHeight: '100vh' }}>
-      <header className="desktop-header" style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
-        <strong>Manufacturing AI Studio</strong>
-        <div style={{ float: 'right' }}>
-          {username} ({role || 'viewer'})
-          <button type="button" onClick={() => { logout(); navigate('/login') }} style={{ marginLeft: 8 }}>로그아웃</button>
+    <div className="app-shell">
+      <header className="app-header desktop-header">
+        <div className="app-header-top">
+          <div className="app-brand-wrap">
+            <span className="app-brand-eyebrow">Factory Intelligence Platform</span>
+            <strong className="app-brand-title">Manufacturing AI Studio</strong>
+          </div>
+
+          <div className="app-user-wrap">
+            <span className="app-user-chip">
+              {username || 'guest'} ({safeRole})
+            </span>
+            <button
+              type="button"
+              className="app-logout-btn"
+              onClick={() => {
+                logout()
+                navigate('/login')
+              }}
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
-        <nav style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+
+        <nav className="app-nav">
           {visibleNavItems.map(({ to, label }) => (
-            <Link key={to} to={to}>{label}</Link>
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) => (isActive ? 'app-nav-link is-active' : 'app-nav-link')}
+            >
+              {label}
+            </NavLink>
           ))}
         </nav>
       </header>
-      <main className="app-main" style={{ padding: 16 }}>
+
+      <main className="app-main">
         <Outlet />
       </main>
+
       <footer className="mobile-tabbar">
         {visibleMobileTabs.map(({ to, label }) => (
-          <Link key={to} to={to}>{label}</Link>
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => (isActive ? 'mobile-tab-link is-active' : 'mobile-tab-link')}
+          >
+            {label}
+          </NavLink>
         ))}
       </footer>
     </div>

@@ -1,0 +1,138 @@
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.86));
+  backdrop-filter: blur(10px);
+}
+
+.app-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.app-brand-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-brand-eyebrow {
+  font-family: 'Space Grotesk', 'Pretendard Variable', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-cyan);
+}
+
+.app-brand-title {
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
+}
+
+.app-user-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-user-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 6px 11px;
+  font-size: 13px;
+  color: var(--ink-subtle);
+}
+
+.app-logout-btn {
+  padding: 8px 12px;
+}
+
+.app-nav {
+  display: flex;
+  gap: 9px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.app-nav-link {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-subtle);
+  transition: all 0.22s ease;
+}
+
+.app-nav-link:hover {
+  border-color: var(--line);
+  background: #ffffff;
+  color: var(--ink-strong);
+}
+
+.app-nav-link.is-active {
+  border-color: var(--brand-blue);
+  background: linear-gradient(180deg, #eff6ff, #dbeafe);
+  color: #1d4ed8;
+}
+
+.app-main {
+  width: min(1240px, calc(100% - 28px));
+  margin: 16px auto 20px;
+  padding: 12px 2px 30px;
+  animation: pageReveal 0.42s ease-out;
+}
+
+@keyframes pageReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-tab-link {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-subtle);
+}
+
+.mobile-tab-link.is-active {
+  border-color: var(--line);
+  background: #ffffff;
+  color: var(--brand-blue);
+}
+
+@media (max-width: 980px) {
+  .app-brand-title {
+    font-size: 22px;
+  }
+
+  .app-user-wrap {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}

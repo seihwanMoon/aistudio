@@ -29,11 +29,40 @@ def _build_data_slug(filename: str | None) -> str:
 
 
 def build_data_key(file_id: str, filename: str | None = None) -> str:
-    return f"{_build_data_slug(filename)}_{file_id}"
+    # Keep data_key as a backward-compatible alias of the single data identifier.
+    return str(file_id)
 
 
 def _meta_path(file_id: str) -> Path:
     return UPLOAD_DIR / f"{file_id}.meta.json"
+
+
+def set_upload_display_name(file_id: str, data_name: str | None) -> dict:
+    if not data_name:
+        return get_upload_metadata(file_id)
+    meta = get_upload_metadata(file_id)
+    normalized_name = _safe_filename(data_name)
+    meta["original_filename"] = normalized_name
+    meta["data_slug"] = _build_data_slug(normalized_name)
+    _meta_path(file_id).write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return meta
+
+
+def _normalize_meta_payload(file_id: str, payload: dict) -> dict:
+    normalized = dict(payload or {})
+    data_ref = str(normalized.get("data_id") or normalized.get("file_id") or file_id)
+    normalized["data_id"] = data_ref
+    normalized["file_id"] = data_ref
+    normalized["data_key"] = data_ref
+    original_filename = normalized.get("original_filename")
+    if not original_filename:
+        original_filename = normalized.get("saved_filename") or f"{file_id}.csv"
+    normalized["original_filename"] = str(original_filename)
+    normalized["data_slug"] = str(normalized.get("data_slug") or _build_data_slug(original_filename))
+    return normalized
 
 
 def get_upload_metadata(file_id: str) -> dict:
@@ -42,7 +71,13 @@ def get_upload_metadata(file_id: str) -> dict:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                return payload
+                normalized = _normalize_meta_payload(file_id=file_id, payload=payload)
+                if normalized != payload:
+                    path.write_text(
+                        json.dumps(normalized, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                return normalized
         except Exception:  # noqa: BLE001
             pass
 
@@ -51,13 +86,15 @@ def get_upload_metadata(file_id: str) -> dict:
         if (UPLOAD_DIR / f"{file_id}{ext}").exists():
             original_filename = f"{file_id}{ext}"
             break
-    return {
+    fallback = {
         "data_id": file_id,
         "file_id": file_id,
         "original_filename": original_filename,
         "data_key": build_data_key(file_id=file_id, filename=original_filename),
         "data_slug": _build_data_slug(original_filename),
     }
+    path.write_text(json.dumps(fallback, ensure_ascii=False, indent=2), encoding="utf-8")
+    return fallback
 
 
 def _detect_encoding(file_path: Path) -> str:

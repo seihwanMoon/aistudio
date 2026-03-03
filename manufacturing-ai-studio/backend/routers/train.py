@@ -18,6 +18,7 @@ class TrainStartRequest(BaseModel):
     feature_columns: list[str]
     time_budget: int = 120
     task_type: str = "classification"
+    data_name: str | None = None
 
 
 def _sanitize_feature_columns(target_column: str, feature_columns: list[str]) -> list[str]:
@@ -42,6 +43,7 @@ def start_train(payload: TrainStartRequest):
         feature_columns=sanitized_features,
         time_budget=payload.time_budget,
         task_type=payload.task_type,
+        data_name=payload.data_name,
     )
     return {"session_id": session_id, "message": "학습을 시작했습니다."}
 
@@ -120,6 +122,7 @@ class RetrainRequest(BaseModel):
     feature_columns: list[str]
     task_type: str = "classification"
     time_budget: int = 120
+    data_name: str | None = None
 
 
 @router.post("/retrain/{model_id}")
@@ -140,6 +143,7 @@ def retrain_model(model_id: int, payload: RetrainRequest):
             feature_columns=sanitized_features,
             time_budget=payload.time_budget,
             task_type=payload.task_type,
+            data_name=payload.data_name,
         )
         return {"message": "재학습을 시작했습니다.", "session_id": session_id, "base_model_id": model_id}
     finally:

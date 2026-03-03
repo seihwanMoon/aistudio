@@ -63,7 +63,11 @@ def _resolve_file_id(base_payload: dict, xai_payload: dict | None) -> str | None
     if base_payload.get("file_id"):
         return str(base_payload["file_id"])
 
-    source_file = ((xai_payload or {}).get("reference") or {}).get("source_file")
+    xai_ref = (xai_payload or {}).get("reference") or {}
+    if xai_ref.get("file_id"):
+        return str(xai_ref["file_id"])
+
+    source_file = xai_ref.get("source_file")
     if not source_file:
         return None
 
@@ -79,11 +83,12 @@ def _resolve_file_id(base_payload: dict, xai_payload: dict | None) -> str | None
 
 def _resolve_data_meta(file_id: str | None, payload: dict) -> tuple[str | None, str | None]:
     if not file_id:
-        return payload.get("data_name"), payload.get("data_key")
+        data_ref = payload.get("data_ref") or payload.get("data_id") or payload.get("file_id")
+        return payload.get("data_name"), data_ref
     meta = get_upload_metadata(file_id)
     data_name = payload.get("data_name") or meta.get("original_filename")
-    data_key = payload.get("data_key") or meta.get("data_key")
-    return data_name, data_key
+    data_ref = payload.get("data_ref") or payload.get("data_id") or meta.get("data_id") or file_id
+    return data_name, data_ref
 
 
 def _enrich_payload(base_payload: dict) -> dict:
@@ -104,10 +109,10 @@ def _enrich_payload(base_payload: dict) -> dict:
 
     file_id = _resolve_file_id(payload, payload.get("xai_global"))
     payload["file_id"] = file_id
-    payload["data_id"] = file_id
-    data_name, data_key = _resolve_data_meta(file_id=file_id, payload=payload)
+    data_name, data_ref = _resolve_data_meta(file_id=file_id, payload=payload)
+    payload["data_ref"] = data_ref
+    payload["data_id"] = data_ref
     payload["data_name"] = data_name
-    payload["data_key"] = data_key
 
     if file_id:
         try:
@@ -232,9 +237,8 @@ def _render_html(payload: dict) -> str:
         feature_count=len(payload.get("feature_columns") or []),
         created_at=payload.get("created_at", "N/A"),
         experiment_name=payload.get("experiment_name") or "N/A",
-        source_data_id=payload.get("data_id") or "N/A",
+        source_data_ref=payload.get("data_ref") or "N/A",
         source_data_name=payload.get("data_name") or "N/A",
-        source_data_key=payload.get("data_key") or "N/A",
         training_time=(f"{float(payload.get('training_time')):.3f}s" if payload.get("training_time") is not None else "N/A"),
         model_feature_rows=_render_rank_rows(model_importance) or "<tr><td colspan='3'>피처 정보가 없습니다.</td></tr>",
         model_feature_bars=_render_bars(model_importance, top_n=5),
@@ -242,7 +246,7 @@ def _render_html(payload: dict) -> str:
         xai_bars=_render_bars(xai_features, top_n=5),
         xai_method=xai_meta.get("explanation_method", "N/A"),
         xai_runtime_ms=(f"{float(xai_meta.get('runtime_ms', 0.0)):.2f}" if xai_meta else "N/A"),
-        xai_reference_file=xai_ref.get("source_file", "N/A"),
+        xai_reference_file=xai_ref.get("source_file_name") or xai_ref.get("source_file", "N/A"),
         xai_reference_rows=xai_ref.get("rows_used", "N/A"),
         eda_quality_score=eda_summary.get("quality_score", "N/A"),
         eda_rows=eda_summary.get("rows", "N/A"),

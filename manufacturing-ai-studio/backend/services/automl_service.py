@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -21,7 +22,7 @@ from sklearn.model_selection import train_test_split
 
 from database import SessionLocal
 from models import Experiment, Model
-from services.data_service import get_upload_metadata, load_dataframe
+from services.data_service import get_upload_metadata, load_dataframe, set_upload_display_name
 from services.drift_service import save_baseline_from_training
 from services.eda_service import get_eda_correlation, get_eda_summary
 from services.mlflow_utils import EXPERIMENT_NAME, ensure_experiment
@@ -107,10 +108,26 @@ def _load_persisted_sessions() -> dict:
         return {}
 
 
-def _build_mlflow_run_name(session_id: str) -> str:
-    if session_id.startswith("session-"):
-        return f"train-{session_id.removeprefix('session-')}"
-    return f"train-{session_id}"
+def _slugify_data_name(data_name: str | None) -> str:
+    stem = Path(str(data_name or "dataset")).stem
+    normalized = re.sub(r"[^A-Za-z0-9_-]+", "_", stem).strip("_").lower()
+    return normalized[:60] or "dataset"
+
+
+def _build_mlflow_run_name(session_id: str, data_name: str | None = None) -> str:
+    ts = str(int(time.time() * 1000))
+    if session_id:
+        last = session_id.rsplit("-", 1)[-1]
+        if last.isdigit():
+            ts = last
+    if data_name:
+        base = Path(str(data_name)).stem or "dataset"
+    elif session_id.startswith("session-"):
+        base = session_id.removeprefix("session-")
+    else:
+        base = session_id
+    run_label = re.sub(r"[^0-9A-Za-z가-힣._-]+", "_", str(base)).strip("_") or "dataset"
+    return f"train-{run_label}-{ts}"
 
 
 def _log_eda_xai_artifacts_to_mlflow(mlflow_run_id: str | None, file_id: str, model_id: int) -> dict:
@@ -173,8 +190,12 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
     session = TRAINING_SESSIONS[session_id]
     db = SessionLocal()
     mlflow_run_id = None
-    upload_meta = get_upload_metadata(file_id)
-    data_key = str(upload_meta.get("data_key", file_id))
+    preferred_data_name = (session.get("payload") or {}).get("data_name")
+    if preferred_data_name:
+        upload_meta = set_upload_display_name(file_id=file_id, data_name=str(preferred_data_name))
+    else:
+        upload_meta = get_upload_metadata(file_id)
+    data_ref = str(upload_meta.get("data_id", file_id))
     data_name = str(upload_meta.get("original_filename", f"{file_id}.csv"))
     try:
         session.update({"status": "running", "progress": 10, "logs": ["학습 세션 시작"]})
@@ -220,7 +241,7 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
 
         if mlflow is not None:
             try:
-                with mlflow.start_run(run_name=_build_mlflow_run_name(session_id=session_id)) as run:
+                with mlflow.start_run(run_name=_build_mlflow_run_name(session_id=session_id, data_name=data_name)) as run:
                     mlflow_run_id = run.info.run_id
                     mlflow.log_params({
                         "task_type": task_type,
@@ -235,10 +256,10 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
                     mlflow.set_tags({
                         "project": "manufacturing_ai_studio",
                         "pipeline": "automl_training",
-                        "training_session_id": session_id,
-                        "data_id": file_id,
-                        "data_key": data_key,
+                        "session": session_id,
+                        "data_ref": data_name,
                         "data_name": data_name,
+                        "file_id": file_id,
                         "task_type": task_type,
                         "target_column": target_column,
                         "model_family": "random_forest",
@@ -310,7 +331,8 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
                 "model_id": trained_model.id,
                 "experiment_id": experiment.id,
                 "file_id": file_id,
-                "data_key": data_key,
+                "data_ref": data_ref,
+                "data_key": data_ref,
                 "data_name": data_name,
                 "target_column": target_column,
                 "feature_columns": feature_columns,
@@ -345,7 +367,8 @@ def _run_training(session_id: str, file_id: str, target_column: str, feature_col
             "target_column": target_column,
             "feature_columns": feature_columns,
             "file_id": file_id,
-            "data_key": data_key,
+            "data_ref": data_ref,
+            "data_key": data_ref,
             "data_name": data_name,
             "mlflow_artifacts": artifact_log_status,
         }
@@ -371,14 +394,18 @@ def start_training(
     feature_columns: list[str],
     time_budget: int,
     task_type: str,
+    data_name: str | None = None,
     session_id: str | None = None,
     resumed: bool = False,
 ) -> str:
+    if data_name:
+        upload_meta = set_upload_display_name(file_id=file_id, data_name=data_name)
+    else:
+        upload_meta = get_upload_metadata(file_id)
     if session_id:
         resolved_session_id = session_id
     else:
-        upload_meta = get_upload_metadata(file_id)
-        data_slug = str(upload_meta.get("data_slug", "dataset"))
+        data_slug = str(upload_meta.get("data_slug", _slugify_data_name(data_name)))
         resolved_session_id = f"session-{data_slug}-{int(time.time() * 1000)}"
     TRAINING_SESSIONS[resolved_session_id] = {
         "status": "queued",
@@ -391,6 +418,7 @@ def start_training(
             "feature_columns": feature_columns,
             "time_budget": time_budget,
             "task_type": task_type,
+            "data_name": str(upload_meta.get("original_filename") or data_name or f"{file_id}.csv"),
         },
     }
     _persist_training_sessions()
@@ -425,6 +453,7 @@ def restore_incomplete_training_sessions() -> list[str]:
             feature_columns=list(payload["feature_columns"]),
             time_budget=int(payload["time_budget"]),
             task_type=str(payload["task_type"]),
+            data_name=payload.get("data_name"),
             session_id=session_id,
             resumed=True,
         )
@@ -452,6 +481,7 @@ def get_model_result(model_id: int) -> dict:
         metadata = _load_model_metadata(Path(model.model_path))
         file_id = metadata.get("file_id")
         upload_meta = get_upload_metadata(str(file_id)) if file_id else {}
+        data_ref = metadata.get("data_ref") or metadata.get("data_id") or file_id or upload_meta.get("data_id")
         return {
             "model_id": model.id,
             "model_name": model.model_name,
@@ -462,8 +492,9 @@ def get_model_result(model_id: int) -> dict:
             "target_column": artifact["target_column"],
             "feature_columns": feature_columns,
             "file_id": file_id,
-            "data_id": file_id,
-            "data_key": metadata.get("data_key") or upload_meta.get("data_key"),
+            "data_ref": data_ref,
+            "data_id": data_ref,
+            "data_key": data_ref,
             "data_name": metadata.get("data_name") or upload_meta.get("original_filename"),
             "mlflow_run_id": metadata.get("mlflow_run_id"),
             "training_time": metadata.get("training_time"),

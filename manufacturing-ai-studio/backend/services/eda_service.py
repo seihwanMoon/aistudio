@@ -5,9 +5,14 @@ import json
 import os
 import time
 from pathlib import Path
+from statistics import NormalDist
 
 import numpy as np
 import pandas as pd
+try:
+    from scipy import stats as scipy_stats
+except Exception:  # noqa: BLE001
+    scipy_stats = None
 
 from services.data_service import load_dataframe
 
@@ -253,6 +258,316 @@ def get_eda_correlation(
     }
     _save_cache(cache_key, payload)
     return payload
+
+
+def get_eda_statistics(
+    file_id: str,
+    top_numeric: int = 12,
+    top_categorical: int = 6,
+    use_cache: bool = True,
+) -> dict:
+    schema_version = 4
+    clean_top_numeric = max(3, min(int(top_numeric), 20))
+    clean_top_categorical = max(2, min(int(top_categorical), 12))
+    cache_key = _cache_key(
+        "statistics",
+        {
+            "schema_version": schema_version,
+            "file_id": file_id,
+            "top_numeric": clean_top_numeric,
+            "top_categorical": clean_top_categorical,
+        },
+    )
+    if use_cache:
+        cached = _load_cache(cache_key)
+        if cached is not None:
+            return cached
+
+    df, _ = _read_dataframe(file_id)
+    row_count = int(len(df))
+    numeric_df = df.select_dtypes(include=["number"]).copy()
+    numeric_columns = [str(col) for col in numeric_df.columns.tolist()]
+    categorical_columns = [
+        str(col)
+        for col in df.columns
+        if str(df[col].dtype) in {"object", "category", "string", "bool"}
+    ]
+
+    numeric_distributions = []
+    boxplot_summary = []
+    skewness_top = []
+    kurtosis_top = []
+    outlier_top = []
+    normality_tests = []
+
+    if numeric_columns:
+        variances = numeric_df.var(numeric_only=True).fillna(0.0).sort_values(ascending=False)
+        selected_numeric = [str(col) for col in variances.head(clean_top_numeric).index.tolist()]
+        for feature in selected_numeric:
+            clean = pd.to_numeric(numeric_df[feature], errors="coerce").dropna().astype(float)
+            missing_ratio = float(1.0 - (len(clean) / max(row_count, 1)))
+            if clean.empty:
+                continue
+
+            q1 = float(clean.quantile(0.25))
+            q2 = float(clean.quantile(0.5))
+            q3 = float(clean.quantile(0.75))
+            iqr = q3 - q1
+            lower = q1 - 1.5 * iqr
+            upper = q3 + 1.5 * iqr
+            outlier_ratio = float(((clean < lower) | (clean > upper)).mean()) if len(clean) else 0.0
+            skewness = float(clean.skew()) if len(clean) > 2 else 0.0
+            kurtosis = float(clean.kurt()) if len(clean) > 3 else 0.0
+
+            bin_size = min(24, max(8, int(np.sqrt(len(clean)))))
+            hist_counts, hist_bins = np.histogram(clean.values, bins=bin_size)
+            hist_max = int(max(hist_counts.tolist() or [0]))
+
+            stats = {
+                "count": int(len(clean)),
+                "mean": float(clean.mean()),
+                "std": float(clean.std(ddof=0)),
+                "min": float(clean.min()),
+                "q25": q1,
+                "q50": q2,
+                "q75": q3,
+                "max": float(clean.max()),
+                "iqr": float(iqr),
+                "skew": skewness,
+                "kurtosis": kurtosis,
+                "outlier_ratio_iqr": outlier_ratio,
+                "missing_ratio": missing_ratio,
+            }
+            histogram = {
+                "bins": [float(v) for v in hist_bins.tolist()],
+                "counts": [int(v) for v in hist_counts.tolist()],
+                "max_count": hist_max,
+            }
+
+            qq_points = []
+            normality = {
+                "feature": feature,
+                "sample_size": int(len(clean)),
+                "shapiro": None,
+                "ks": None,
+                "reason": None,
+            }
+            if len(clean) >= 3 and stats["std"] > 0:
+                sorted_values = np.sort(clean.values.astype(float))
+                n = len(sorted_values)
+                max_points = 120
+                if n > max_points:
+                    indices = np.linspace(0, n - 1, num=max_points).astype(int)
+                    sample_values = sorted_values[indices]
+                    probs = (indices + 0.5) / n
+                else:
+                    sample_values = sorted_values
+                    probs = (np.arange(n) + 0.5) / n
+                try:
+                    normal_dist = NormalDist(mu=stats["mean"], sigma=stats["std"])
+                    theoretical = [float(normal_dist.inv_cdf(float(p))) for p in probs.tolist()]
+                    qq_points = [
+                        {"theoretical": float(tx), "sample": float(sx)}
+                        for tx, sx in zip(theoretical, sample_values.tolist())
+                    ]
+                except Exception:  # noqa: BLE001
+                    qq_points = []
+
+                if scipy_stats is not None:
+                    try:
+                        shapiro_sample = clean
+                        if len(shapiro_sample) > 5000:
+                            shapiro_sample = shapiro_sample.sample(n=5000, random_state=42)
+                        shapiro_stat, shapiro_p = scipy_stats.shapiro(shapiro_sample.values.astype(float))
+                        normality["shapiro"] = {
+                            "statistic": float(shapiro_stat),
+                            "p_value": float(shapiro_p),
+                            "is_normal_p05": bool(float(shapiro_p) >= 0.05),
+                        }
+                    except Exception:  # noqa: BLE001
+                        normality["shapiro"] = None
+
+                    try:
+                        z = (clean.values.astype(float) - stats["mean"]) / max(stats["std"], 1e-12)
+                        ks_stat, ks_p = scipy_stats.kstest(z, "norm")
+                        normality["ks"] = {
+                            "statistic": float(ks_stat),
+                            "p_value": float(ks_p),
+                            "is_normal_p05": bool(float(ks_p) >= 0.05),
+                        }
+                    except Exception:  # noqa: BLE001
+                        normality["ks"] = None
+                else:
+                    normality["reason"] = "scipy_unavailable"
+            elif len(clean) < 3:
+                normality["reason"] = "insufficient_samples"
+            elif stats["std"] <= 0:
+                normality["reason"] = "zero_variance"
+
+            if normality["reason"] is None and normality["shapiro"] is None and normality["ks"] is None:
+                normality["reason"] = "test_failed"
+
+            normality_tests.append(normality)
+
+            numeric_distributions.append(
+                {
+                    "feature": feature,
+                    "stats": stats,
+                    "histogram": histogram,
+                    "qq_plot": qq_points,
+                    "normality": normality,
+                }
+            )
+            boxplot_summary.append(
+                {
+                    "feature": feature,
+                    "min": stats["min"],
+                    "q25": q1,
+                    "q50": q2,
+                    "q75": q3,
+                    "max": stats["max"],
+                    "outlier_ratio_iqr": outlier_ratio,
+                }
+            )
+            skewness_top.append({"feature": feature, "value": skewness})
+            kurtosis_top.append({"feature": feature, "value": kurtosis})
+            outlier_top.append({"feature": feature, "value": outlier_ratio})
+
+    skewness_top.sort(key=lambda item: abs(float(item["value"])), reverse=True)
+    kurtosis_top.sort(key=lambda item: abs(float(item["value"])), reverse=True)
+    outlier_top.sort(key=lambda item: float(item["value"]), reverse=True)
+
+    categorical_distributions = []
+    if categorical_columns:
+        missing_by_col = df[categorical_columns].isna().mean().sort_values(ascending=False)
+        selected_categorical = [str(col) for col in missing_by_col.head(clean_top_categorical).index.tolist()]
+        for feature in selected_categorical:
+            series = df[feature].fillna("<<MISSING>>").astype(str)
+            counts = series.value_counts()
+            total = max(int(counts.sum()), 1)
+            categorical_distributions.append(
+                {
+                    "feature": feature,
+                    "unique_count": int(series.nunique()),
+                    "top_values": [
+                        {
+                            "label": str(label),
+                            "count": int(count),
+                            "ratio": float(int(count) / total),
+                        }
+                        for label, count in counts.head(8).items()
+                    ],
+                }
+            )
+
+    payload = {
+        "file_id": file_id,
+        "rows": row_count,
+        "numeric_feature_count": len(numeric_columns),
+        "numeric_features": numeric_columns,
+        "categorical_feature_count": len(categorical_columns),
+        "numeric_distributions": numeric_distributions,
+        "boxplot_summary": boxplot_summary,
+        "skewness_top": skewness_top[:10],
+        "kurtosis_top": kurtosis_top[:10],
+        "outlier_top": outlier_top[:10],
+        "normality_tests": normality_tests,
+        "categorical_distributions": categorical_distributions,
+    }
+    _save_cache(cache_key, payload)
+    return _to_builtin(payload)
+
+
+def get_eda_multivariate(
+    file_id: str,
+    features: list[str],
+    max_points: int = 1500,
+    use_cache: bool = True,
+) -> dict:
+    schema_version = 1
+    clean_features = [str(f).strip() for f in features if str(f).strip()]
+    dedup_features: list[str] = []
+    for feature in clean_features:
+        if feature not in dedup_features:
+            dedup_features.append(feature)
+    clean_features = dedup_features[:3]
+    if len(clean_features) < 2:
+        raise ValueError("2개 이상의 numeric 피처를 선택해 주세요.")
+
+    clean_max_points = max(300, min(int(max_points), 5000))
+    cache_key = _cache_key(
+        "multivariate",
+        {
+            "schema_version": schema_version,
+            "file_id": file_id,
+            "features": clean_features,
+            "max_points": clean_max_points,
+        },
+    )
+    if use_cache:
+        cached = _load_cache(cache_key)
+        if cached is not None:
+            return cached
+
+    df, _ = _read_dataframe(file_id)
+    for feature in clean_features:
+        if feature not in df.columns:
+            raise KeyError(f"피처를 찾을 수 없습니다: {feature}")
+
+    selected = df[clean_features].copy()
+    for feature in clean_features:
+        selected[feature] = pd.to_numeric(selected[feature], errors="coerce")
+    selected = selected.dropna()
+    if selected.empty:
+        raise ValueError("선택한 피처 조합에 유효한 numeric 데이터가 없습니다.")
+
+    total_rows = int(len(selected))
+    if len(selected) > clean_max_points:
+        sampled = selected.sample(n=clean_max_points, random_state=42)
+    else:
+        sampled = selected
+
+    axes = {
+        "x": clean_features[0],
+        "y": clean_features[1],
+        "z": clean_features[2] if len(clean_features) >= 3 else None,
+    }
+
+    points = []
+    for _, row in sampled.iterrows():
+        item = {
+            "x": float(row[axes["x"]]),
+            "y": float(row[axes["y"]]),
+        }
+        if axes["z"] is not None:
+            item["z"] = float(row[axes["z"]])
+        points.append(item)
+
+    axis_stats = {}
+    for key, col in axes.items():
+        if col is None:
+            continue
+        series = selected[col]
+        axis_stats[key] = {
+            "feature": col,
+            "min": float(series.min()),
+            "max": float(series.max()),
+            "mean": float(series.mean()),
+            "std": float(series.std(ddof=0)),
+        }
+
+    payload = {
+        "file_id": file_id,
+        "mode": "3d" if axes["z"] else "2d",
+        "axes": axes,
+        "points": points,
+        "rows_total": int(len(df)),
+        "rows_valid": total_rows,
+        "rows_sampled": int(len(points)),
+        "stats": axis_stats,
+    }
+    _save_cache(cache_key, payload)
+    return _to_builtin(payload)
 
 
 def get_feature_profile(file_id: str, feature_name: str, target_column: str | None = None) -> dict:

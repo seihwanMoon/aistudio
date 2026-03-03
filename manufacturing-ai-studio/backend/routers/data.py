@@ -13,9 +13,11 @@ async def upload_data(file: UploadFile = File(...)):
     try:
         file_id, saved_path = save_upload(file.filename or "uploaded.csv", content)
         meta = get_upload_metadata(file_id)
+        data_ref = meta.get("data_id") or file_id
         return {
-            "data_id": file_id,
-            "data_key": meta.get("data_key"),
+            "data_ref": data_ref,
+            "data_id": data_ref,
+            "data_key": data_ref,
             "data_name": meta.get("original_filename"),
             "file_id": file_id,
             "filename": file.filename,
@@ -38,9 +40,11 @@ def preview_data(file_id: str):
         df, encoding = load_dataframe(file_path)
         payload = build_preview(df)
         meta = get_upload_metadata(file_id)
+        data_ref = meta.get("data_id") or file_id
         payload["encoding"] = encoding
-        payload["data_id"] = file_id
-        payload["data_key"] = meta.get("data_key")
+        payload["data_ref"] = data_ref
+        payload["data_id"] = data_ref
+        payload["data_key"] = data_ref
         payload["data_name"] = meta.get("original_filename")
         payload["file_id"] = file_id
         return payload

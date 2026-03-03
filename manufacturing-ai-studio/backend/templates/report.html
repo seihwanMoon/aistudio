@@ -140,7 +140,7 @@
   <body>
     <div class="header">
       <h1>Manufacturing AI Studio 분석 리포트</h1>
-      <p>Model ID ${model_id} | 생성일 ${created_at} | 데이터 키 ${source_data_key}</p>
+      <p>Model ID ${model_id} | 생성일 ${created_at} | 데이터 식별자 ${source_data_ref}</p>
     </div>
 
     <div class="section">
@@ -169,7 +169,7 @@
         <tr><th>타겟 컬럼</th><td>${target_column}</td><th>피처 개수</th><td>${feature_count}</td></tr>
         <tr><th>평가 지표</th><td>${metric_name}</td><th>평가 값</th><td class="mono">${metric_value}</td></tr>
         <tr><th>학습 시간</th><td>${training_time}</td><th>데이터명</th><td>${source_data_name}</td></tr>
-        <tr><th>데이터 ID</th><td class="mono">${source_data_id}</td><th>데이터 키</th><td class="mono">${source_data_key}</td></tr>
+        <tr><th>데이터 식별자</th><td class="mono">${source_data_ref}</td><th>Model ID</th><td class="mono">${model_id}</td></tr>
       </table>
     </div>
 

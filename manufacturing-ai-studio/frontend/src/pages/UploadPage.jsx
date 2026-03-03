@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { KO } from '../constants/korean'
 import { getDataPreview, uploadDataFile } from '../api/data.api'
-import { getEdaCorrelation, getEdaFeatureProfile, getEdaSummary, getEdaTargetInsight } from '../api/eda.api'
+import { getEdaCorrelation, getEdaFeatureProfile, getEdaStatistics, getEdaSummary, getEdaTargetInsight } from '../api/eda.api'
 import EdaCorrelation from '../components/data/EdaCorrelation'
 import EdaFeatureProfile from '../components/data/EdaFeatureProfile'
+import EdaStatistics from '../components/data/EdaStatistics'
 import EdaTargetInsight from '../components/data/EdaTargetInsight'
 import DataPreview from '../components/data/DataPreview'
 import EdaOverview from '../components/data/EdaOverview'
@@ -15,6 +16,7 @@ const SUPPORTED_EXTENSIONS = ['csv', 'xlsx']
 const ANALYSIS_TABS = [
   { id: 'preview', label: '데이터 미리보기' },
   { id: 'overview', label: 'EDA 요약' },
+  { id: 'statistics', label: '통계 분석' },
   { id: 'target', label: '타겟 인사이트' },
   { id: 'correlation', label: '상관분석' },
   { id: 'feature', label: '피처 프로필' },
@@ -43,6 +45,7 @@ export default function UploadPage() {
   const [uploadResult, setUploadResult] = useState(null)
   const [preview, setPreview] = useState(null)
   const [edaSummary, setEdaSummary] = useState(null)
+  const [edaStatistics, setEdaStatistics] = useState(null)
   const [edaCorrelation, setEdaCorrelation] = useState(null)
   const [targetInsight, setTargetInsight] = useState(null)
   const [targetInsightColumn, setTargetInsightColumn] = useState('')
@@ -55,12 +58,14 @@ export default function UploadPage() {
   const [activeTab, setActiveTab] = useState('preview')
 
   const canUpload = useMemo(() => file && !isLoading, [file, isLoading])
+  const currentFileId = uploadResult?.file_id || uploadedFile?.file_id
 
   function handleFileSelect(nextFile) {
     setFile(nextFile)
     setUploadResult(null)
     setPreview(null)
     setEdaSummary(null)
+    setEdaStatistics(null)
     setEdaCorrelation(null)
     setTargetInsight(null)
     setTargetInsightColumn('')
@@ -88,7 +93,7 @@ export default function UploadPage() {
 
   async function handleSelectFeature(featureName) {
     setSelectedFeature(featureName)
-    await loadFeatureProfile(uploadResult?.file_id, featureName)
+    await loadFeatureProfile(currentFileId, featureName)
   }
 
   async function loadTargetInsight(fileId, targetColumn) {
@@ -108,18 +113,28 @@ export default function UploadPage() {
 
   async function handleSelectTargetInsight(targetColumn) {
     setTargetInsightColumn(targetColumn)
-    await loadTargetInsight(uploadResult?.file_id, targetColumn)
+    await loadTargetInsight(currentFileId, targetColumn)
   }
 
-  async function loadPreviewAndEda(fileId) {
+  async function loadPreviewAndEda(fileId, preferredDataName = '') {
     const previewData = await getDataPreview(fileId)
-    setPreview(previewData)
+    const dataRef = previewData?.data_ref || previewData?.data_id || previewData?.file_id || fileId
+    const resolvedDataName = preferredDataName || uploadedFile?.data_name || uploadedFile?.filename || previewData?.data_name
+    setPreview({
+      ...previewData,
+      data_ref: dataRef,
+      data_id: dataRef,
+      data_key: dataRef,
+      data_name: resolvedDataName || previewData?.data_name,
+    })
 
-    const [summary, correlation] = await Promise.all([
+    const [summary, statistics, correlation] = await Promise.all([
       getEdaSummary(fileId),
+      getEdaStatistics(fileId, { top_numeric: 12, top_categorical: 6 }),
       getEdaCorrelation(fileId, { max_features: 30, threshold: 0.8 }),
     ])
     setEdaSummary(summary)
+    setEdaStatistics(statistics)
     setEdaCorrelation(correlation)
 
     const defaultTargetColumn = previewData?.columns?.[previewData?.columns?.length - 1] || ''
@@ -146,7 +161,7 @@ export default function UploadPage() {
       if (preview?.file_id === uploadedFile.file_id) return
       try {
         setUploadResult((prev) => prev || uploadedFile)
-        await loadPreviewAndEda(uploadedFile.file_id)
+        await loadPreviewAndEda(uploadedFile.file_id, uploadedFile.data_name || uploadedFile.filename || '')
       } catch (error) {
         setEdaErrorMessage(error?.response?.data?.detail || 'EDA 결과를 불러오지 못했습니다.')
       }
@@ -171,9 +186,10 @@ export default function UploadPage() {
       setActiveTab('preview')
 
       try {
-        await loadPreviewAndEda(uploaded.file_id)
+        await loadPreviewAndEda(uploaded.file_id, uploaded.data_name || uploaded.filename || '')
       } catch (edaError) {
         setEdaSummary(null)
+        setEdaStatistics(null)
         setEdaCorrelation(null)
         setTargetInsight(null)
         setTargetInsightColumn('')
@@ -189,13 +205,16 @@ export default function UploadPage() {
   }
 
   return (
-    <section style={{ maxWidth: 1100, margin: '0 auto', textAlign: 'left' }}>
-      <h1 style={{ marginBottom: 8 }}>{KO.upload.title}</h1>
-      <p style={{ margin: '0 0 20px', color: '#4b5563' }}>{KO.upload.subtitle}</p>
+    <section className="page-shell compact" style={{ maxWidth: 1100 }}>
+      <div className="page-hero">
+        <p className="page-kicker">Data Pipeline</p>
+        <h1>{KO.upload.title}</h1>
+        <p className="page-subtitle">{KO.upload.subtitle}</p>
+      </div>
 
       <FileDropzone file={file} onFileSelect={handleFileSelect} disabled={isLoading} />
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 14 }}>
+      <div className="actions-row">
         <button type="button" onClick={handleUpload} disabled={!canUpload || Boolean(errorMessage)}>
           {isLoading ? KO.upload.uploading : KO.upload.button}
         </button>
@@ -203,57 +222,40 @@ export default function UploadPage() {
         <a
           href="/samples/sample_manufacturing.csv"
           download
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            border: '1px solid #d1d5db',
-            borderRadius: 8,
-            padding: '0.55rem 1rem',
-            fontSize: '0.95rem',
-            fontWeight: 600,
-            backgroundColor: '#fff',
-            color: '#111827',
-          }}
+          className="link-button"
         >
           {KO.upload.sampleData}
         </a>
       </div>
 
-      <small style={{ display: 'block', marginTop: 10, color: '#6b7280' }}>{KO.upload.supportedFormats}</small>
+      <small className="helper-text">{KO.upload.supportedFormats}</small>
 
       {errorMessage && (
-        <p style={{ marginTop: 12, color: '#dc2626', fontWeight: 600 }}>
+        <p className="notice error">
           {KO.common.error}: {errorMessage}
         </p>
       )}
 
       {uploadResult && (
-        <div
-          style={{
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 8,
-            backgroundColor: '#ecfdf5',
-            border: '1px solid #a7f3d0',
-          }}
-        >
+        <div className="notice success">
           <strong>{KO.upload.success}</strong>
-          <div style={{ marginTop: 4, fontSize: 14 }}>데이터명: {uploadResult.data_name || uploadResult.filename || '-'}</div>
-          <div style={{ marginTop: 2, fontSize: 14 }}>데이터 키: {uploadResult.data_key || uploadResult.file_id}</div>
-          <div style={{ marginTop: 2, fontSize: 14 }}>데이터 ID: {uploadResult.data_id || uploadResult.file_id}</div>
+          <div className="meta-inline">
+            <div>데이터명: {uploadResult.data_name || uploadResult.filename || '-'}</div>
+            <div>데이터 식별자: {uploadResult.data_ref || uploadResult.data_id || uploadResult.file_id}</div>
+          </div>
         </div>
       )}
 
       {preview && (
-        <section style={{ marginTop: 20, border: '1px solid #e5e7eb', borderRadius: 12, backgroundColor: '#fff' }}>
-          <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid #e5e7eb' }}>
-            <h2 style={{ margin: 0, fontSize: 17 }}>업로드 데이터 분석</h2>
-            <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: 13 }}>
+        <section className="section-card soft">
+          <div>
+            <h2 className="section-card-header">업로드 데이터 분석</h2>
+            <p className="section-card-subtitle">
               아래 탭에서 미리보기와 EDA 결과를 개별 화면으로 확인하세요.
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 12, borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+          <div className="tab-row">
             {ANALYSIS_TABS.map((tab) => {
               const isActive = activeTab === tab.id
               return (
@@ -261,16 +263,7 @@ export default function UploadPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    border: isActive ? '1px solid #2563eb' : '1px solid #d1d5db',
-                    backgroundColor: isActive ? '#eff6ff' : '#fff',
-                    color: isActive ? '#1d4ed8' : '#1f2937',
-                    borderRadius: 999,
-                    padding: '6px 12px',
-                    fontSize: 13,
-                    fontWeight: isActive ? 700 : 500,
-                    cursor: 'pointer',
-                  }}
+                  className={isActive ? 'tab-button is-active' : 'tab-button'}
                 >
                   {tab.label}
                 </button>
@@ -278,9 +271,10 @@ export default function UploadPage() {
             })}
           </div>
 
-          <div style={{ padding: 12 }}>
+          <div className="content-wrap">
             {activeTab === 'preview' && <DataPreview preview={preview} />}
             {activeTab === 'overview' && <EdaOverview summary={edaSummary} />}
+            {activeTab === 'statistics' && <EdaStatistics stats={edaStatistics} fileId={currentFileId} />}
             {activeTab === 'target' && (
               <EdaTargetInsight
                 columns={preview?.columns || []}
@@ -302,7 +296,7 @@ export default function UploadPage() {
           </div>
         </section>
       )}
-      {edaErrorMessage && <p style={{ color: '#b45309', marginTop: 10 }}>{edaErrorMessage}</p>}
+      {edaErrorMessage && <p className="notice warn">{edaErrorMessage}</p>}
     </section>
   )
 }

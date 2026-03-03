@@ -44,6 +44,7 @@ export default function TrainingPage() {
         feature_columns: featureColumns,
         task_type: taskType,
         time_budget: 120,
+        data_name: uploadedFile.filename || uploadedFile.data_name || '',
       })
       setTrainingSessionId(response.session_id)
       setLogs((prev) => [...prev, `세션 생성 완료: ${response.session_id}`])
@@ -94,39 +95,42 @@ export default function TrainingPage() {
   }, [trainingSessionId, navigate, setTrainedModelId, setTrainingResult])
 
   return (
-    <section style={{ textAlign: 'left', maxWidth: 900, margin: '0 auto' }}>
-      <h1>{KO.training.title}</h1>
-      <p>{KO.training.subtitle}</p>
-      <p style={{ color: '#475569', fontSize: 14 }}>
-        상태: {status} / 세션: {trainingSessionId || '-'}
-      </p>
-
-      <div style={{ marginTop: 16, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#fff' }}>
-        <div style={{ height: 16, borderRadius: 999, backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
-          <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#2563eb', transition: 'width 0.3s' }} />
-        </div>
-        <p style={{ marginTop: 8, fontWeight: 700 }}>{progress}%</p>
+    <section className="page-shell compact" style={{ maxWidth: 900 }}>
+      <div className="page-hero">
+        <p className="page-kicker">AutoML Run</p>
+        <h1>{KO.training.title}</h1>
+        <p className="page-subtitle">{KO.training.subtitle}</p>
+        <p className="helper-text">
+          상태: {status} / 세션: {trainingSessionId || '-'}
+        </p>
       </div>
 
-      <button type="button" onClick={beginTraining} disabled={!canStart || status === 'running' || status === 'starting'} style={{ marginTop: 16 }}>
-        {status === 'running' || status === 'starting' ? '학습 중...' : '학습 시작'}
-      </button>
-      {!canStart && (
-        <p style={{ marginTop: 8, color: '#b45309' }}>
-          학습에 필요한 설정이 없습니다. <Link to="/setup">학습 설정</Link>에서 타겟/피처를 다시 선택해 주세요.
-        </p>
-      )}
+      <div className="section-card soft">
+        <div className="progress-track">
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
+        </div>
+        <p className="progress-value">{progress}%</p>
 
-      <div style={{ marginTop: 16, border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, backgroundColor: '#0f172a', color: '#e2e8f0' }}>
+        <button type="button" onClick={beginTraining} disabled={!canStart || status === 'running' || status === 'starting'}>
+          {status === 'running' || status === 'starting' ? '학습 중...' : '학습 시작'}
+        </button>
+        {!canStart && (
+          <p className="notice warn">
+            학습에 필요한 설정이 없습니다. <Link to="/setup">학습 설정</Link>에서 타겟/피처를 다시 선택해 주세요.
+          </p>
+        )}
+      </div>
+
+      <div className="section-card dark">
         <strong>로그</strong>
-        <ul>
+        <ul className="log-list">
           {logs.map((log, idx) => (
             <li key={`${log}-${idx}`}>{log}</li>
           ))}
         </ul>
       </div>
 
-      {errorMessage && <p style={{ color: '#dc2626' }}>{errorMessage}</p>}
+      {errorMessage && <p className="notice error">{errorMessage}</p>}
     </section>
   )
 }
